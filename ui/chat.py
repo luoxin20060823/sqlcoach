@@ -4,7 +4,7 @@ from agent.tutor import Tutor
 
 
 def render_chat_tab(llm_client, schema_sql):
-    st.subheader("💬 自由答疑")
+    st.subheader("自由答疑")
     if not llm_client:
         st.info("请先在侧边栏设置 API Key。")
         return
@@ -16,7 +16,6 @@ def render_chat_tab(llm_client, schema_sql):
 
     history = st.session_state.setdefault("chat_history", [])
 
-    # 渲染历史
     for msg in history:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -25,7 +24,7 @@ def render_chat_tab(llm_client, schema_sql):
     if not user_input:
         col1, col2 = st.columns([1, 8])
         with col1:
-            if st.button("🧹 清空对话"):
+            if st.button("清空对话"):
                 st.session_state["chat_history"] = []
                 st.rerun()
         return

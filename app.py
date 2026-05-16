@@ -19,7 +19,6 @@ from config import (
 
 st.set_page_config(
     page_title="SQL随身教练",
-    page_icon="🏠",
     layout="wide",
 )
 
@@ -45,9 +44,9 @@ def init_session_state():
         "trigger_new_question": False,
         "remember_key": bool(saved_key),
         "settings": settings,
-        "prefetched_question": None,    # 预取的下一题
-        "review_question_id": None,     # 复习模式当前题号
-        "chat_history": [],             # 自由答疑多轮
+        "prefetched_question": None,
+        "review_question_id": None,
+        "chat_history": [],
         "custom_domain": "",
     }
     for key, val in defaults.items():
@@ -63,10 +62,10 @@ def init_session_state():
 
 def sidebar():
     with st.sidebar:
-        st.title("🏠 SQL随身教练")
+        st.title("SQL随身教练")
 
         # API Key
-        st.markdown("### 🔑 API 设置")
+        st.markdown("### API 设置")
         api_key = st.text_input(
             "DeepSeek API Key",
             type="password",
@@ -81,7 +80,7 @@ def sidebar():
                 st.session_state["llm_client"] = None
 
         remember = st.checkbox(
-            "💾 记住 API Key（保存到本地）",
+            "记住 API Key（保存到本地）",
             value=st.session_state.get("remember_key", False),
         )
         if remember != st.session_state.get("remember_key"):
@@ -96,7 +95,7 @@ def sidebar():
         st.divider()
 
         # 学习进度
-        st.markdown("### 📊 学习进度")
+        st.markdown("### 学习进度")
         stats = st.session_state.get("stats", {})
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -109,7 +108,7 @@ def sidebar():
         st.divider()
 
         # 学习设置
-        st.markdown("### ⚙️ 学习设置")
+        st.markdown("### 学习设置")
         domain_choices = list(DOMAINS) + ["自定义领域..."]
         cur_domain = st.session_state["current_domain"]
         idx = domain_choices.index(cur_domain) if cur_domain in domain_choices else 0
@@ -124,13 +123,12 @@ def sidebar():
         difficulty = st.selectbox(
             "难度", ["easy", "medium", "hard"],
             index=["easy", "medium", "hard"].index(st.session_state["current_difficulty"]),
-            format_func=lambda x: {"easy": "🟢 初级", "medium": "🟡 中级", "hard": "🔴 高级"}[x],
+            format_func=lambda x: {"easy": "初级", "medium": "中级", "hard": "高级"}[x],
         )
         st.session_state["current_difficulty"] = difficulty
 
         type_keys = ["random"] + list(QUESTION_TYPES.keys())
-        type_labels = {k: f"🎲 {v}" if k == "random" else v for k, v in
-                       [("random", "随机出题")] + list(QUESTION_TYPES.items())}
+        type_labels = dict([("random", "随机出题")] + list(QUESTION_TYPES.items()))
         cur_type = st.session_state.get("current_question_type", "random")
         if cur_type not in type_keys:
             cur_type = "random"
@@ -143,27 +141,27 @@ def sidebar():
         st.divider()
 
         # 操作
-        st.markdown("### 🎮 操作")
+        st.markdown("### 操作")
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("🗄️ 生成数据库", type="primary", use_container_width=True):
+            if st.button("生成数据库", type="primary", use_container_width=True):
                 _generate_schema(force_llm=False)
         with col_b:
-            if st.button("🔄 LLM 重生成", use_container_width=True,
-                          help="跳过预置/缓存，重新调 LLM 生成数据库"):
+            if st.button("LLM 重生成", use_container_width=True,
+                         help="跳过预置/缓存，重新调 LLM 生成数据库"):
                 _generate_schema(force_llm=True)
 
-        if st.button("📝 生成题目", type="primary", use_container_width=True):
+        if st.button("生成题目", type="primary", use_container_width=True):
             _generate_question()
 
-        if st.button("🔄 刷新统计", use_container_width=True):
+        if st.button("刷新统计", use_container_width=True):
             st.session_state["stats"] = st.session_state["store"].get_stats()
             st.rerun()
 
         st.divider()
 
         # 高级设置
-        with st.expander("⚙️ 高级设置（性能/体验）", expanded=False):
+        with st.expander("高级设置（性能/体验）", expanded=False):
             settings = dict(st.session_state.get("settings", DEFAULT_SETTINGS))
             settings["enable_semantic_judge"] = st.checkbox(
                 "LLM 语义判题（更严格，但慢）",
@@ -184,17 +182,14 @@ def sidebar():
             if st.button("保存设置", use_container_width=True):
                 save_settings(settings)
                 st.session_state["settings"] = settings
-                # 强制 LLM client 重新加载 settings（timeout 等）
                 if st.session_state["api_key"]:
                     st.session_state["llm_client"] = LLMClient(api_key=st.session_state["api_key"])
                 st.success("已保存。")
 
 
 def _load_schema_into_state(sql: str):
-    """把生成好的 SQL 装载到 session_state，并解析示例数据。"""
     st.session_state["current_schema_sql"] = sql
 
-    # 提取 CREATE TABLE 用于展示
     lines = []
     for line in sql.split("\n"):
         u = line.strip().upper()
@@ -205,7 +200,6 @@ def _load_schema_into_state(sql: str):
             break
     st.session_state["current_schema"] = "\n".join(lines)
 
-    # 在内存数据库执行，预取数据
     try:
         conn = sqlite3.connect(":memory:")
         conn.executescript(sql)
@@ -224,7 +218,6 @@ def _load_schema_into_state(sql: str):
 
 
 def _generate_schema(force_llm: bool = False):
-    """生成数据库（命中预置/缓存时无需 LLM）。"""
     domain = st.session_state["current_domain"]
     if not domain:
         st.error("请先选择或填写一个领域。")
@@ -234,7 +227,6 @@ def _generate_schema(force_llm: bool = False):
 
     gen = SchemaGenerator(llm=llm, store=store)
 
-    # 如果命中预置/缓存，立即装载，不显示 spinner
     if not force_llm:
         from agent.preset_schemas import get_preset
         preset = get_preset(domain)
@@ -277,7 +269,6 @@ def _clear_question_state():
 
 
 def _generate_question():
-    """生成 SQL 题目。优先使用预取结果。"""
     llm = st.session_state.get("llm_client")
     schema = st.session_state.get("current_schema_sql")
     if not schema:
@@ -289,7 +280,6 @@ def _generate_question():
     difficulty = st.session_state["current_difficulty"]
     qtype = st.session_state.get("current_question_type", "random")
 
-    # 复用预取结果
     prefetched = st.session_state.get("prefetched_question")
     if prefetched and prefetched.get("__domain") == domain \
             and prefetched.get("__difficulty") == difficulty \
@@ -299,7 +289,6 @@ def _generate_question():
     else:
         if not llm:
             st.error("请先输入 API Key（或开启题库复用并已有题目）。")
-            # 即便没 LLM，仍然尝试纯题库抽取
         store = st.session_state["store"]
         qgen = QuestionGenerator(llm, store=store)
         with st.spinner("正在生成题目..."):
@@ -309,14 +298,8 @@ def _generate_question():
         st.error("题目生成失败，请重试或检查网络。")
         return
 
-    # 保存到题库（复用题不重复保存）
     store = st.session_state["store"]
     if question.get("_reused"):
-        # 复用题需要查回 question_id
-        existing = store.pick_random_question(
-            domain, difficulty, question.get("question_type", qtype)
-        )
-        # 上一行可能抽到不同的题，这里直接重新查最新一条 schema_name+question_text 匹配
         with store._get_conn() as conn:
             row = conn.execute(
                 "SELECT id FROM question_bank WHERE schema_name=? AND question_text=? "
@@ -352,7 +335,7 @@ def main():
     sidebar()
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📝 练习", "📊 分析报告", "🗄️ 数据浏览", "🔁 错题复习", "💬 自由答疑",
+        "练习", "分析报告", "数据浏览", "错题复习", "自由答疑",
     ])
 
     with tab1:

@@ -177,7 +177,10 @@ class DataStore:
             return [dict(r) for r in rows]
 
     def get_wrong_questions(self, limit: int = 50) -> list:
-        """获取最近做错的题（去重，每题只取最近一次）。"""
+        """获取最近未完整做对的题（含 wrong / flawed / skipped）。
+
+        每题只保留最近一次记录。skipped（放弃 / 直接看答案）也算需要复习。
+        """
         with self._get_conn() as conn:
             rows = conn.execute(
                 """SELECT qb.id AS question_id,
@@ -187,7 +190,7 @@ class DataStore:
                           uh.user_sql, uh.verdict, uh.error_type
                    FROM user_history uh
                    JOIN question_bank qb ON uh.question_id = qb.id
-                   WHERE uh.verdict IN ('wrong', 'flawed')
+                   WHERE uh.verdict IN ('wrong', 'flawed', 'skipped')
                    GROUP BY qb.id
                    ORDER BY last_attempt DESC
                    LIMIT ?""",

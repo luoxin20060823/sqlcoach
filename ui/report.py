@@ -8,11 +8,11 @@ from config import KNOWLEDGE_POINTS
 
 
 def render_report_tab(llm_client, store):
-    st.subheader("📊 学习分析报告")
+    st.subheader("学习分析报告")
 
     stats = store.get_stats()
     if stats["total"] == 0:
-        st.info("还没有答题记录，先去练习吧！")
+        st.info("还没有答题记录，先去练习吧。")
         return
 
     c1, c2, c3 = st.columns(3)
@@ -24,22 +24,22 @@ def render_report_tab(llm_client, store):
         st.metric("正确率", f"{stats['accuracy']:.0%}")
 
     dim_stats = store.get_dimension_stats()
-    st.markdown("### 🎯 能力雷达图")
+    st.markdown("### 能力雷达图")
     st.plotly_chart(_build_radar_chart(dim_stats), use_container_width=True)
 
-    st.markdown("### 📝 答题历史（最近 20 条）")
+    st.markdown("### 答题历史（最近 20 条）")
     history = store.get_user_history(limit=50)
     if history:
         df = pd.DataFrame(history)
         df["结果"] = df["verdict"].map({
-            "correct": "✅", "flawed": "⚠️", "wrong": "❌", "skipped": "🏳️",
+            "correct": "正确", "flawed": "瑕疵", "wrong": "错误", "skipped": "看答案",
         })
         cols = [c for c in ["question_text", "difficulty", "knowledge_point", "结果"] if c in df.columns]
         st.dataframe(df[cols].head(20), use_container_width=True, hide_index=True)
 
     if llm_client:
-        st.markdown("### 💡 智能分析建议")
-        if st.button("🔄 生成 / 刷新分析", type="primary"):
+        st.markdown("### 智能分析建议")
+        if st.button("生成 / 刷新分析", type="primary"):
             with st.spinner("正在分析..."):
                 from agent.analyzer import Analyzer
                 analyzer = Analyzer(llm_client)
@@ -50,7 +50,7 @@ def render_report_tab(llm_client, store):
             _render_analysis(analysis)
             _render_export(stats, history, dim_stats, analysis)
 
-    st.markdown("### 🔍 错误类型分布")
+    st.markdown("### 错误类型分布")
     error_data = _count_error_types(history)
     if error_data:
         fig2 = px.pie(
@@ -67,23 +67,23 @@ def _render_analysis(analysis):
     with cs:
         st.markdown("**强项**:")
         for s in analysis.get("strengths", []):
-            st.markdown(f"- ✅ {s}")
+            st.markdown(f"- {s}")
     with cw:
         st.markdown("**弱项**:")
         for w in analysis.get("weaknesses", []):
-            st.markdown(f"- ⚠️ {w}")
+            st.markdown(f"- {w}")
     st.markdown("**改进建议**:")
     for sug in analysis.get("suggestions", []):
-        st.markdown(f"- 💡 {sug}")
+        st.markdown(f"- {sug}")
     next_diff = analysis.get("next_difficulty", "easy")
     diff_labels = {"easy": "初级", "medium": "中级", "hard": "高级"}
-    st.info(f"📌 建议下次练习难度：**{diff_labels.get(next_diff, next_diff)}**")
+    st.info(f"建议下次练习难度：{diff_labels.get(next_diff, next_diff)}")
 
 
 def _render_export(stats, history, dim_stats, analysis):
     md = _build_markdown_report(stats, history, dim_stats, analysis)
     st.download_button(
-        "⬇️ 导出 Markdown 报告",
+        "导出 Markdown 报告",
         data=md.encode("utf-8"),
         file_name=f"sql_coach_report_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
         mime="text/markdown",
@@ -124,7 +124,7 @@ def _build_markdown_report(stats, history, dim_stats, analysis) -> str:
     lines.append("| 难度 | 知识点 | 结果 | 题目 |")
     lines.append("|---|---|---|---|")
     for h in history[:20]:
-        verdict = {"correct": "✅", "flawed": "⚠️", "wrong": "❌", "skipped": "🏳️"}.get(
+        verdict = {"correct": "正确", "flawed": "瑕疵", "wrong": "错误", "skipped": "看答案"}.get(
             h.get("verdict", ""), h.get("verdict", "")
         )
         title = (h.get("question_text") or "").replace("|", "\\|").replace("\n", " ")[:60]

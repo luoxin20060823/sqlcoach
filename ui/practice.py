@@ -1,4 +1,4 @@
-"""Streamlit 练习 Tab — SQL编辑器 + 运行 → 提交 → 查看解析"""
+"""Streamlit 练习 Tab — SQL 编辑器 + 运行 → 提交 → 查看解析"""
 import threading
 import sqlite3
 import pandas as pd
@@ -8,19 +8,19 @@ from config import QUESTION_TYPES, load_settings
 
 
 def render_practice_tab(llm_client, store, full_schema_sql, schema_display, current_question):
-    st.subheader("📝 SQL 练习")
+    st.subheader("SQL 练习")
 
     if not full_schema_sql:
-        st.info("👈 请先在侧边栏选择领域并点击『生成数据库』，再点击『生成题目』。")
+        st.info("请先在侧边栏选择领域并点击「生成数据库」，再点击「生成题目」。")
         return
 
-    with st.expander("📋 查看当前数据库结构", expanded=False):
+    with st.expander("查看当前数据库结构", expanded=False):
         st.code(full_schema_sql, language="sql")
 
     current_q = current_question or st.session_state.get("last_question")
     if current_q:
-        st.markdown("### 🤖 当前题目")
-        difficulty_labels = {"easy": "🟢 初级", "medium": "🟡 中级", "hard": "🔴 高级"}
+        st.markdown("### 当前题目")
+        difficulty_labels = {"easy": "初级", "medium": "中级", "hard": "高级"}
         diff = st.session_state.get("current_difficulty", "easy")
         qtype = current_q.get("question_type", "")
         qtype_label = QUESTION_TYPES.get(qtype, qtype) if qtype else ""
@@ -41,7 +41,7 @@ def render_practice_tab(llm_client, store, full_schema_sql, schema_display, curr
 
 
 def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
-    st.markdown("### ✍️ SQL 编辑器")
+    st.markdown("### SQL 编辑器")
 
     last_sql = st.session_state.get("last_user_sql", "")
     user_sql = st.text_area(
@@ -52,23 +52,23 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
         key="sql_input",
     )
 
-    col1, col2, col3, col4, col5 = st.columns([0.8, 0.8, 0.8, 0.8, 2.0])
+    col1, col2, col3, col4, col5 = st.columns([0.8, 0.8, 0.8, 1.0, 2.0])
     with col1:
-        run_btn = st.button("▶ 运行", use_container_width=True)
+        run_btn = st.button("运行", use_container_width=True)
     with col2:
         has_run = st.session_state.get("has_run_sql", False)
         run_error = st.session_state.get("run_error", "")
         can_submit = has_run and not run_error
         submit_btn = st.button(
-            "✅ 提交答案",
+            "提交答案",
             type="primary" if can_submit else "secondary",
             disabled=not can_submit,
             use_container_width=True,
         )
     with col3:
-        hint_btn = st.button("💡 提示", use_container_width=True)
+        hint_btn = st.button("提示", use_container_width=True)
     with col4:
-        give_up_btn = st.button("🏳️ 放弃", use_container_width=True)
+        give_up_btn = st.button("查看答案", use_container_width=True)
 
     _display_hints()
 
@@ -120,12 +120,12 @@ def _display_run_result():
     error = st.session_state.get("run_error", "")
 
     if error:
-        st.error(f"❌ SQL 执行错误：{error}")
+        st.error(f"SQL 执行错误：{error}")
         return
     if cols is None and rows is None:
         return
 
-    st.markdown("### 📊 查询结果")
+    st.markdown("### 查询结果")
     if rows is not None and len(rows) > 0:
         df = pd.DataFrame(rows, columns=cols)
         st.dataframe(df, use_container_width=True, hide_index=True)
@@ -141,13 +141,13 @@ def _display_verdict():
     if not result:
         return
     st.divider()
-    icons = {
-        "correct": "✅ 正确！",
-        "flawed": "⚠️ 结果正确但逻辑有瑕疵",
-        "wrong": "❌ 错误",
-        "skipped": "🏳️ 已放弃",
+    labels = {
+        "correct": "正确",
+        "flawed": "结果正确但逻辑有瑕疵",
+        "wrong": "错误",
+        "skipped": "已查看答案",
     }
-    st.markdown(f"## {icons.get(result['verdict'], result['verdict'])}")
+    st.markdown(f"## {labels.get(result['verdict'], result['verdict'])}")
 
     if result.get("analysis"):
         st.markdown(f"**分析**: {result['analysis']}")
@@ -158,21 +158,21 @@ def _display_verdict():
         current_q = st.session_state.get("last_question") or {}
         ans_sql = current_q.get("answer_sql", "")
         if ans_sql:
-            st.markdown("### 📖 标准答案")
+            st.markdown("### 标准答案")
             st.code(ans_sql, language="sql")
 
     optimization = st.session_state.get("last_optimization")
     if optimization:
-        st.markdown("### 💡 优化建议")
+        st.markdown("### 优化建议")
         st.markdown(optimization)
 
     if result["verdict"] not in ("correct",) and not st.session_state.get("show_answer"):
-        if st.button("📖 查看解析", type="secondary"):
+        if st.button("查看解析", type="secondary"):
             _generate_explanation()
 
     explanation = st.session_state.get("last_explanation")
     if explanation:
-        st.markdown("### 📖 详细解析")
+        st.markdown("### 详细解析")
         st.markdown(explanation)
     if explanation is None and st.session_state.get("last_explanation_error"):
         st.warning(st.session_state["last_explanation_error"])
@@ -191,7 +191,7 @@ def _generate_explanation():
         st.warning("请先设置 API Key。")
         return
     st.session_state["show_answer"] = True
-    with st.spinner("🤖 生成详细解析..."):
+    with st.spinner("生成详细解析..."):
         try:
             tutor = Tutor(llm)
             explanation = tutor.explain(
@@ -220,7 +220,6 @@ def _handle_submission(llm_client, store, full_schema_sql, current_question, use
     st.session_state["last_question"] = current_question
 
     try:
-        # 仅在用户开了语义判题时才传 llm
         judge = JudgeEngine(
             llm=llm_client if settings.get("enable_semantic_judge") else None,
             enable_semantic=settings.get("enable_semantic_judge", False),
@@ -245,11 +244,9 @@ def _handle_submission(llm_client, store, full_schema_sql, current_question, use
     st.session_state["last_result"] = result
     st.session_state["question_finished"] = True
 
-    # 答对 → 可选优化建议
     if result["verdict"] == "correct" and settings.get("enable_auto_optimization") and llm_client:
         _generate_optimization(llm_client, full_schema_sql, current_question, user_sql)
 
-    # 异步预取下一题
     if settings.get("prefetch_next_question") and llm_client:
         _prefetch_next_question_async(llm_client, store, full_schema_sql)
 
@@ -268,17 +265,16 @@ def _generate_optimization(llm_client, full_schema_sql, current_q, user_sql):
         )
         st.session_state["last_optimization"] = opt
     except Exception:
-        st.session_state["last_optimization"] = "答得很好！继续保持。"
+        st.session_state["last_optimization"] = "答得很好，继续保持。"
 
 
 def _prefetch_next_question_async(llm_client, store, full_schema_sql):
-    """后台线程预取下一题，不阻塞 UI。结果存到 session_state['prefetched_question']。"""
     from agent.question_gen import QuestionGenerator
     domain = st.session_state.get("current_domain", "")
     difficulty = st.session_state.get("current_difficulty", "easy")
     qtype = st.session_state.get("current_question_type", "random")
 
-    state = st.session_state  # streamlit 1.31+ 允许跨线程访问
+    state = st.session_state
 
     def _worker():
         try:
@@ -296,17 +292,25 @@ def _prefetch_next_question_async(llm_client, store, full_schema_sql):
 
 
 def _handle_give_up(store, current_q):
+    """查看答案：保存为 skipped 记录，进入"已查看答案"状态。"""
     qid = st.session_state.get("current_question_id")
     if qid and current_q:
-        store.save_history(qid, "（放弃）", "skipped", "")
+        store.save_history(qid, "（已查看答案）", "skipped", "")
+
+    # 让 _display_verdict 知道当前题目是哪一道
+    if current_q:
+        st.session_state["last_question"] = current_q
+
     st.session_state["show_answer"] = True
     st.session_state["question_finished"] = True
     st.session_state["last_result"] = {
         "verdict": "skipped",
-        "analysis": "你选择了放弃这道题。",
-        "suggestion": "仔细学习标准答案，理解思路后再做下一题。",
+        "analysis": "你选择了直接查看答案。",
+        "suggestion": "仔细学习标准答案，理解思路后可以再做一次。",
         "layer": 0,
     }
+    # 同步统计
+    st.session_state["stats"] = store.get_stats()
     st.rerun()
 
 
@@ -314,7 +318,7 @@ def _render_post_answer_actions():
     st.markdown("---")
     c1, c2 = st.columns([1, 3])
     with c1:
-        if st.button("📝 下一题", type="primary", use_container_width=True):
+        if st.button("下一题", type="primary", use_container_width=True):
             for key in [
                 "last_result", "last_explanation", "last_explanation_error",
                 "show_answer", "question_finished", "last_user_sql",
@@ -330,7 +334,7 @@ def _render_post_answer_actions():
     with c2:
         cached = st.session_state.get("prefetched_question")
         if cached:
-            st.caption("✨ 下一题已在后台准备好，点『下一题』直接显示。")
+            st.caption("下一题已在后台准备好，点「下一题」直接显示。")
         else:
             st.caption("当前题目已结束，点击生成下一道。")
 
@@ -339,13 +343,14 @@ def _display_hints():
     hints = st.session_state.get("hints", [])
     if not hints:
         return
-    with st.expander(f"💡 提示（共 {len(hints)} 层）", expanded=True):
+    with st.expander(f"提示（共 {len(hints)} 层）", expanded=True):
         for i, h in enumerate(hints, 1):
-            level_label = {1: "🔹 方向", 2: "🔸 引导", 3: "🔺 具体"}.get(i, f"第{i}层")
+            level_label = {1: "方向", 2: "引导", 3: "具体"}.get(i, f"第{i}层")
             st.markdown(f"**{level_label}**: {h}")
 
 
 def _request_hint(llm_client, full_schema_sql, current_question):
+    """生成一层提示并立即刷新页面显示。"""
     from agent.tutor import Tutor
     hint_level = st.session_state.get("hint_level", 0) + 1
     st.session_state["hint_level"] = hint_level
@@ -356,6 +361,11 @@ def _request_hint(llm_client, full_schema_sql, current_question):
     }
     prompt = level_prompts.get(hint_level, level_prompts[3])
     with st.spinner(f"生成第 {hint_level} 层提示..."):
-        tutor = Tutor(llm_client)
-        hint = tutor.answer_question(full_schema_sql, prompt)
-        st.session_state.setdefault("hints", []).append(hint)
+        try:
+            tutor = Tutor(llm_client)
+            hint = tutor.answer_question(full_schema_sql, prompt)
+            st.session_state.setdefault("hints", []).append(hint)
+        except Exception as e:
+            st.session_state.setdefault("hints", []).append(f"（提示生成失败：{e}）")
+    # 关键：生成完后立即刷新，否则当前帧已经渲染过 _display_hints
+    st.rerun()
