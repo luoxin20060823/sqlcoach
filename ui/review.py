@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 from agent.judge import JudgeEngine
+from ui.sql_editor import sql_editor
 
 
 def render_review_tab(llm_client, store):
@@ -38,22 +39,28 @@ def render_review_tab(llm_client, store):
         st.error("题目已不存在。")
         return
 
-    st.markdown(f"**领域**: {q['schema_name']} ｜ **难度**: {q['difficulty']} ｜ **知识点**: {q['knowledge_point']}")
+    st.markdown(
+        f"**领域**: {q['schema_name']} ｜ **难度**: {q['difficulty']} ｜ "
+        f"**知识点**: {q['knowledge_point']}"
+    )
     st.markdown(f"> {q['question_text']}")
 
     schema_sql = _resolve_schema_sql(store, q["schema_name"])
     if not schema_sql:
-        st.warning(f"该题所属领域 '{q['schema_name']}' 的 schema 不在本地缓存，请先在主界面生成或加载该数据库。")
+        st.warning(
+            f"该题所属领域 '{q['schema_name']}' 的 schema 不在本地缓存，"
+            "请先在主界面生成或加载该数据库。"
+        )
         return
 
     with st.expander("数据库结构", expanded=False):
         st.code(schema_sql, language="sql")
 
-    sql_input = st.text_area(
-        "请重新作答",
-        value=st.session_state.get(f"review_sql_{qid}", ""),
-        height=140,
-        key=f"review_sql_input_{qid}",
+    sql_input = sql_editor(
+        value="",
+        key=f"review_sql_{qid}",
+        height=160,
+        placeholder="重新作答这道题...",
     )
 
     c1, c2, c3 = st.columns([1, 1, 4])
@@ -78,11 +85,13 @@ def render_review_tab(llm_client, store):
     res_key = f"review_result_{qid}"
     if st.session_state.get(res_key):
         result = st.session_state[res_key]
-        labels = {"correct": "这次对了", "wrong": "仍然错误", "flawed": "结果对但逻辑有瑕疵"}
+        labels = {"correct": "这次对了", "wrong": "仍然错误",
+                  "flawed": "结果对但逻辑有瑕疵"}
         st.markdown(f"## {labels.get(result['verdict'], result['verdict'])}")
         if result.get("analysis"):
             st.markdown(f"**分析**: {result['analysis']}")
-        if result.get("suggestion"):
+        # 答错时不显示「建议」
+        if result.get("suggestion") and result["verdict"] not in ("wrong", "flawed"):
             st.markdown(f"**建议**: {result['suggestion']}")
 
 

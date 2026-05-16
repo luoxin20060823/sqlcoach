@@ -11,6 +11,7 @@ from ui.report import render_report_tab
 from ui.browser import render_browser_tab
 from ui.review import render_review_tab
 from ui.chat import render_chat_tab
+from ui.challenge import render_challenge_tab
 from config import (
     DOMAINS, QUESTION_TYPES,
     load_api_key, save_api_key, clear_api_key,
@@ -339,8 +340,8 @@ def main():
 
     sidebar()
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "练习", "分析报告", "数据浏览", "错题复习", "自由答疑",
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "练习", "挑战模式", "分析报告", "数据浏览", "错题复习", "自由答疑",
     ])
 
     with tab1:
@@ -353,24 +354,30 @@ def main():
         )
 
     with tab2:
-        render_report_tab(
+        render_challenge_tab(
             st.session_state.get("llm_client"),
             st.session_state["store"],
         )
 
     with tab3:
+        render_report_tab(
+            st.session_state.get("llm_client"),
+            st.session_state["store"],
+        )
+
+    with tab4:
         render_browser_tab(
             st.session_state.get("current_schema_sql", ""),
             st.session_state.get("current_data", {}),
         )
 
-    with tab4:
+    with tab5:
         render_review_tab(
             st.session_state.get("llm_client"),
             st.session_state["store"],
         )
 
-    with tab5:
+    with tab6:
         render_chat_tab(
             st.session_state.get("llm_client"),
             st.session_state.get("current_schema_sql", ""),

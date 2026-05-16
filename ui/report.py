@@ -1,4 +1,4 @@
-"""Streamlit 分析报告 Tab — 雷达图 + 历史 + 建议 + 导出"""
+"""Streamlit 分析报告 Tab — 雷达图 + 趋势图 + 历史 + 建议 + 导出"""
 from datetime import datetime
 import pandas as pd
 import plotly.graph_objects as go
@@ -23,20 +23,41 @@ def render_report_tab(llm_client, store):
     with c3:
         st.metric("正确率", f"{stats['accuracy']:.0%}")
 
+    history = store.get_user_history(limit=200)
     dim_stats = store.get_dimension_stats()
-    st.markdown("### 能力雷达图")
-    st.plotly_chart(_build_radar_chart(dim_stats), use_container_width=True)
 
+    # 趋势图：每日正确率折线 + 每日做题数柱状（同一行）
+    st.markdown("### 答题趋势")
+    daily = _daily_aggregate(history)
+    if not daily.empty:
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.plotly_chart(_build_accuracy_trend(daily), use_container_width=True)
+        with col_b:
+            st.plotly_chart(_build_volume_chart(daily), use_container_width=True)
+    else:
+        st.caption("数据不足以画趋势图。")
+
+    # 能力维度：雷达图 + 横向条形图
+    st.markdown("### 能力维度")
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.plotly_chart(_build_radar_chart(dim_stats), use_container_width=True)
+    with col_r:
+        st.plotly_chart(_build_dimension_bar(dim_stats), use_container_width=True)
+
+    # 答题历史
     st.markdown("### 答题历史（最近 20 条）")
-    history = store.get_user_history(limit=50)
     if history:
         df = pd.DataFrame(history)
         df["结果"] = df["verdict"].map({
             "correct": "正确", "flawed": "瑕疵", "wrong": "错误", "skipped": "看答案",
         })
-        cols = [c for c in ["question_text", "difficulty", "knowledge_point", "结果"] if c in df.columns]
+        cols = [c for c in ["question_text", "difficulty", "knowledge_point", "结果"]
+                if c in df.columns]
         st.dataframe(df[cols].head(20), use_container_width=True, hide_index=True)
 
+    # 智能分析
     if llm_client:
         st.markdown("### 智能分析建议")
         if st.button("生成 / 刷新分析", type="primary"):
@@ -50,15 +71,111 @@ def render_report_tab(llm_client, store):
             _render_analysis(analysis)
             _render_export(stats, history, dim_stats, analysis)
 
+    # 错误分布
     st.markdown("### 错误类型分布")
     error_data = _count_error_types(history)
     if error_data:
         fig2 = px.pie(
             names=list(error_data.keys()),
             values=list(error_data.values()),
-            title="错误分类统计",
+            title="",
+            color_discrete_sequence=px.colors.qualitative.Set2,
         )
+        fig2.update_layout(height=350, margin=dict(t=20, b=0, l=0, r=0))
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.caption("暂无可统计的错误数据。")
+
+
+# ----------------- 趋势图 -----------------
+def _daily_aggregate(history: list) -> pd.DataFrame:
+    """聚合每日做题数与正确数（排除 skipped）。"""
+    if not history:
+        return pd.DataFrame()
+    df = pd.DataFrame(history)
+    if "created_at" not in df.columns:
+        return pd.DataFrame()
+    df = df[df["verdict"] != "skipped"].copy()
+    if df.empty:
+        return pd.DataFrame()
+    df["date"] = pd.to_datetime(df["created_at"]).dt.date
+    g = df.groupby("date").agg(
+        total=("verdict", "count"),
+        correct=("verdict", lambda v: (v == "correct").sum()),
+    ).reset_index().sort_values("date")
+    g["accuracy"] = g["correct"] / g["total"]
+    return g
+
+
+def _build_accuracy_trend(daily: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=daily["date"], y=daily["accuracy"],
+        mode="lines+markers",
+        line=dict(color="#3b82f6", width=3),
+        marker=dict(size=8, color="#3b82f6"),
+        name="每日正确率",
+        hovertemplate="%{x}<br>正确率 %{y:.0%}<extra></extra>",
+    ))
+    fig.update_layout(
+        title="每日正确率趋势",
+        height=320,
+        yaxis=dict(range=[0, 1.05], tickformat=".0%"),
+        xaxis_title="日期",
+        margin=dict(t=40, b=30, l=30, r=10),
+    )
+    return fig
+
+
+def _build_volume_chart(daily: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=daily["date"], y=daily["total"],
+        marker_color="#818cf8",
+        name="每日做题数",
+        hovertemplate="%{x}<br>做题数 %{y}<extra></extra>",
+    ))
+    fig.update_layout(
+        title="每日做题量",
+        height=320,
+        xaxis_title="日期",
+        yaxis_title="做题数",
+        margin=dict(t=40, b=30, l=30, r=10),
+    )
+    return fig
+
+
+# ----------------- 维度图 -----------------
+def _build_dimension_bar(dim_stats: dict) -> go.Figure:
+    points, accuracies, totals = [], [], []
+    for kp in KNOWLEDGE_POINTS:
+        d = dim_stats.get(kp, {"accuracy": 0.0, "total": 0})
+        points.append(kp)
+        accuracies.append(d["accuracy"])
+        totals.append(d["total"])
+
+    colors = [
+        "#10b981" if a >= 0.8 else "#f59e0b" if a >= 0.5 else "#ef4444"
+        for a in accuracies
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=accuracies,
+        y=points,
+        orientation="h",
+        marker_color=colors,
+        text=[f"{a:.0%} ({t} 题)" if t else "无记录" for a, t in zip(accuracies, totals)],
+        textposition="outside",
+        hovertemplate="%{y}<br>正确率 %{x:.0%}<extra></extra>",
+    ))
+    fig.update_layout(
+        title="知识点掌握度（绿色 ≥80%，橙色 50-80%，红色 <50%）",
+        height=400,
+        xaxis=dict(range=[0, 1.15], tickformat=".0%"),
+        margin=dict(t=40, b=30, l=80, r=20),
+    )
+    return fig
 
 
 def _render_analysis(analysis):
@@ -128,7 +245,10 @@ def _build_markdown_report(stats, history, dim_stats, analysis) -> str:
             h.get("verdict", ""), h.get("verdict", "")
         )
         title = (h.get("question_text") or "").replace("|", "\\|").replace("\n", " ")[:60]
-        lines.append(f"| {h.get('difficulty', '')} | {h.get('knowledge_point', '')} | {verdict} | {title} |")
+        lines.append(
+            f"| {h.get('difficulty', '')} | {h.get('knowledge_point', '')} | "
+            f"{verdict} | {title} |"
+        )
     return "\n".join(lines)
 
 
@@ -147,8 +267,10 @@ def _build_radar_chart(dim_stats: dict) -> go.Figure:
         fillcolor="rgba(59, 130, 246, 0.3)",
     ))
     fig.update_layout(
+        title="能力雷达图",
         polar=dict(radialaxis=dict(range=[0, 1], tickformat=".0%")),
         height=400,
+        margin=dict(t=40, b=20, l=20, r=20),
     )
     return fig
 

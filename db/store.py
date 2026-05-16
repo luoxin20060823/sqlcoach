@@ -51,10 +51,22 @@ class DataStore:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
 
+                CREATE TABLE IF NOT EXISTS challenge_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    schema_name TEXT NOT NULL,
+                    difficulty TEXT NOT NULL,
+                    question_count INTEGER NOT NULL,
+                    correct_count INTEGER NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    finished_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_qb_lookup
                     ON question_bank(schema_name, difficulty, question_type);
                 CREATE INDEX IF NOT EXISTS idx_uh_qid
                     ON user_history(question_id);
+                CREATE INDEX IF NOT EXISTS idx_cr_finished
+                    ON challenge_runs(finished_at DESC);
             """)
             # 兼容旧表
             for stmt in [
@@ -259,3 +271,36 @@ class DataStore:
                     "accuracy": correct / total if total > 0 else 0.0,
                 }
             return result
+
+    # ---- 挑战记录 ----
+    def save_challenge_run(self, schema_name: str, difficulty: str,
+                           question_count: int, correct_count: int,
+                           duration_seconds: int) -> int:
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO challenge_runs "
+                "(schema_name, difficulty, question_count, correct_count, duration_seconds) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (schema_name, difficulty, question_count, correct_count, duration_seconds),
+            )
+            return cur.lastrowid
+
+    def get_challenge_runs(self, limit: int = 20) -> list:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM challenge_runs ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_best_challenge(self, schema_name: str, difficulty: str,
+                           question_count: int) -> dict:
+        """同条件下的最高分（正确数高 + 用时短）。"""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM challenge_runs "
+                "WHERE schema_name = ? AND difficulty = ? AND question_count = ? "
+                "ORDER BY correct_count DESC, duration_seconds ASC LIMIT 1",
+                (schema_name, difficulty, question_count),
+            ).fetchone()
+            return dict(row) if row else None

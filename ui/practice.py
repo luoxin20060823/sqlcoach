@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from config import QUESTION_TYPES, load_settings
+from ui.sql_editor import sql_editor
 
 
 def render_practice_tab(llm_client, store, full_schema_sql, schema_display, current_question):
@@ -44,13 +45,8 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
     st.markdown("### SQL 编辑器")
 
     last_sql = st.session_state.get("last_user_sql", "")
-    user_sql = st.text_area(
-        "SQL 语句",
-        value=last_sql,
-        placeholder="例如: SELECT * FROM students WHERE age > 18",
-        height=150,
-        key="sql_input",
-    )
+    user_sql = sql_editor(value=last_sql, key="sql_input", height=200,
+                          placeholder="例如: SELECT * FROM students WHERE age > 18")
 
     col1, col2, col3, col4, col5 = st.columns([0.8, 0.8, 0.8, 1.0, 2.0])
     with col1:
