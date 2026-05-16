@@ -64,36 +64,6 @@ def sidebar():
     with st.sidebar:
         st.title("SQL随身教练")
 
-        # API Key
-        st.markdown("### API 设置")
-        api_key = st.text_input(
-            "DeepSeek API Key",
-            type="password",
-            value=st.session_state["api_key"],
-            placeholder="sk-...",
-        )
-        if api_key != st.session_state["api_key"]:
-            st.session_state["api_key"] = api_key
-            if api_key:
-                st.session_state["llm_client"] = LLMClient(api_key=api_key)
-            else:
-                st.session_state["llm_client"] = None
-
-        remember = st.checkbox(
-            "记住 API Key（保存到本地）",
-            value=st.session_state.get("remember_key", False),
-        )
-        if remember != st.session_state.get("remember_key"):
-            st.session_state["remember_key"] = remember
-            if remember and api_key:
-                save_api_key(api_key)
-                st.success("API Key 已保存。")
-            elif not remember:
-                clear_api_key()
-                st.info("已清除本地 API Key。")
-
-        st.divider()
-
         # 学习进度
         st.markdown("### 学习进度")
         stats = st.session_state.get("stats", {})
@@ -142,14 +112,8 @@ def sidebar():
 
         # 操作
         st.markdown("### 操作")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("生成数据库", type="primary", use_container_width=True):
-                _generate_schema(force_llm=False)
-        with col_b:
-            if st.button("LLM 重生成", use_container_width=True,
-                         help="跳过预置/缓存，重新调 LLM 生成数据库"):
-                _generate_schema(force_llm=True)
+        if st.button("生成数据库", type="primary", use_container_width=True):
+            _generate_schema(force_llm=False)
 
         if st.button("生成题目", type="primary", use_container_width=True):
             _generate_question()
@@ -161,7 +125,47 @@ def sidebar():
         st.divider()
 
         # 高级设置
-        with st.expander("高级设置（性能/体验）", expanded=False):
+        with st.expander("高级设置", expanded=False):
+            # API Key
+            st.markdown("**API 设置**")
+            api_key = st.text_input(
+                "DeepSeek API Key",
+                type="password",
+                value=st.session_state["api_key"],
+                placeholder="sk-...",
+            )
+            if api_key != st.session_state["api_key"]:
+                st.session_state["api_key"] = api_key
+                if api_key:
+                    st.session_state["llm_client"] = LLMClient(api_key=api_key)
+                else:
+                    st.session_state["llm_client"] = None
+
+            remember = st.checkbox(
+                "记住 API Key（保存到本地）",
+                value=st.session_state.get("remember_key", False),
+            )
+            if remember != st.session_state.get("remember_key"):
+                st.session_state["remember_key"] = remember
+                if remember and api_key:
+                    save_api_key(api_key)
+                    st.success("API Key 已保存。")
+                elif not remember:
+                    clear_api_key()
+                    st.info("已清除本地 API Key。")
+
+            st.markdown("---")
+
+            # LLM 重生成
+            st.markdown("**数据库重生成**")
+            if st.button("LLM 重新生成数据库", use_container_width=True,
+                         help="跳过预置/缓存，重新调 LLM 生成数据库（耗时较长）"):
+                _generate_schema(force_llm=True)
+
+            st.markdown("---")
+
+            # 性能 / 体验开关
+            st.markdown("**性能 / 体验**")
             settings = dict(st.session_state.get("settings", DEFAULT_SETTINGS))
             settings["enable_semantic_judge"] = st.checkbox(
                 "LLM 语义判题（更严格，但慢）",
