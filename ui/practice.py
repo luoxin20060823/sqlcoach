@@ -56,12 +56,12 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
     with col1:
         run_btn = st.button("运行", use_container_width=True)
     with col2:
-        has_run = st.session_state.get("has_run_sql", False)
+        # 提交按钮：只要 SQL 非空就可点（不强制先点运行）
         run_error = st.session_state.get("run_error", "")
-        can_submit = has_run and not run_error
+        can_submit = bool(user_sql.strip())
         submit_btn = st.button(
             "提交答案",
-            type="primary" if can_submit else "secondary",
+            type="primary" if can_submit and not run_error else "secondary",
             disabled=not can_submit,
             use_container_width=True,
         )
@@ -90,6 +90,7 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
 
 
 def _handle_run_sql(full_schema_sql, user_sql):
+    """仅在内存数据库执行用户 SQL 并展示结果，不计入答题记录。"""
     st.session_state["last_user_sql"] = user_sql
     st.session_state.pop("run_result_columns", None)
     st.session_state.pop("run_result_rows", None)
@@ -166,7 +167,8 @@ def _display_verdict():
         st.markdown("### 优化建议")
         st.markdown(optimization)
 
-    if result["verdict"] not in ("correct",) and not st.session_state.get("show_answer"):
+    # 解析按钮：所有判题结果都允许查看解析（包括答对）
+    if not st.session_state.get("show_answer") and not st.session_state.get("last_explanation"):
         if st.button("查看解析", type="secondary"):
             _generate_explanation()
 
@@ -190,7 +192,9 @@ def _generate_explanation():
     if not llm:
         st.warning("请先设置 API Key。")
         return
-    st.session_state["show_answer"] = True
+    # 仅在非正确答案时同时展示标准答案，正确时只显示解析即可
+    if result.get("verdict") != "correct":
+        st.session_state["show_answer"] = True
     with st.spinner("生成详细解析..."):
         try:
             tutor = Tutor(llm)
