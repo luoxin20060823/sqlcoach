@@ -46,12 +46,13 @@ def test_full_loop_student_db(store):
     assert result2["verdict"] == "wrong"
     store.save_history(qid, user_sql2, result2["verdict"], result2.get("error_type", ""))
 
-    # 4. 统计
+    # 4. 统计（按题去重 + 第一次为准）
+    # 同一题两次提交（correct → wrong），第一次是 correct，所以 total=1 correct=1
     stats = store.get_stats()
-    assert stats["total"] == 2
+    assert stats["total"] == 1
     assert stats["correct"] == 1
-    assert abs(stats["accuracy"] - 0.5) < 1e-6
+    assert abs(stats["accuracy"] - 1.0) < 1e-6
 
-    # 5. 错题应能查回来
+    # 5. 错题应能查回来（错题表按完整历史而非第一次）
     wrongs = store.get_wrong_questions()
     assert any(w["question_id"] == qid for w in wrongs)

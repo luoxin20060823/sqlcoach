@@ -199,13 +199,30 @@ class DataStore:
             return [dict(r) for r in rows]
 
     def get_stats(self) -> dict:
+        """统计：每道题只算一次，且只看第一次提交的判定。
+
+        - 排除 skipped（查看答案）记录
+        - 同一题多次提交，只取最早一次的 verdict
+        - 第一次答错则永远不计为正确
+        """
         with self._get_conn() as conn:
-            total = conn.execute(
-                "SELECT COUNT(*) FROM user_history"
-            ).fetchone()[0]
-            correct = conn.execute(
-                "SELECT COUNT(*) FROM user_history WHERE verdict = 'correct'"
-            ).fetchone()[0]
+            row = conn.execute("""
+                WITH first_attempts AS (
+                    SELECT question_id, verdict,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY question_id ORDER BY id
+                           ) AS rn
+                    FROM user_history
+                    WHERE verdict != 'skipped' AND question_id IS NOT NULL
+                )
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN verdict = 'correct' THEN 1 ELSE 0 END) AS correct
+                FROM first_attempts
+                WHERE rn = 1
+            """).fetchone()
+            total = row["total"] or 0
+            correct = row["correct"] or 0
             return {
                 "total": total,
                 "correct": correct,
@@ -213,20 +230,32 @@ class DataStore:
             }
 
     def get_dimension_stats(self) -> dict:
+        """按知识维度统计；同样按题去重 + 第一次为准。"""
         with self._get_conn() as conn:
             rows = conn.execute("""
+                WITH first_attempts AS (
+                    SELECT question_id, verdict,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY question_id ORDER BY id
+                           ) AS rn
+                    FROM user_history
+                    WHERE verdict != 'skipped' AND question_id IS NOT NULL
+                )
                 SELECT qb.knowledge_point,
                        COUNT(*) AS total,
-                       SUM(CASE WHEN uh.verdict = 'correct' THEN 1 ELSE 0 END) AS correct
-                FROM user_history uh
-                JOIN question_bank qb ON uh.question_id = qb.id
+                       SUM(CASE WHEN fa.verdict = 'correct' THEN 1 ELSE 0 END) AS correct
+                FROM first_attempts fa
+                JOIN question_bank qb ON fa.question_id = qb.id
+                WHERE fa.rn = 1
                 GROUP BY qb.knowledge_point
             """).fetchall()
             result = {}
             for r in rows:
+                total = r["total"] or 0
+                correct = r["correct"] or 0
                 result[r["knowledge_point"]] = {
-                    "total": r["total"],
-                    "correct": r["correct"] or 0,
-                    "accuracy": (r["correct"] or 0) / r["total"] if r["total"] > 0 else 0.0,
+                    "total": total,
+                    "correct": correct,
+                    "accuracy": correct / total if total > 0 else 0.0,
                 }
             return result

@@ -54,13 +54,41 @@ class TestDataStore:
         assert stats["accuracy"] == 0.0
 
     def test_get_stats_with_data(self, store):
+        """同一题两次提交（先对后错）按"第一次为准 + 去重"算 total=1, correct=1。"""
         qid = store.save_question("db1", "easy", "SELECT", "Q1", "SELECT 1")
         store.save_history(qid, "SELECT 1", "correct")
         store.save_history(qid, "WRONG", "wrong", "syntax")
         stats = store.get_stats()
+        assert stats["total"] == 1
+        assert stats["correct"] == 1
+        assert stats["accuracy"] == 1.0
+
+    def test_get_stats_first_attempt_locks_in(self, store):
+        """第一次答错则永远不计为正确，即使后来答对。"""
+        qid = store.save_question("db1", "easy", "SELECT", "Q1", "SELECT 1")
+        store.save_history(qid, "WRONG", "wrong", "syntax")
+        store.save_history(qid, "SELECT 1", "correct")
+        stats = store.get_stats()
+        assert stats["total"] == 1
+        assert stats["correct"] == 0
+
+    def test_get_stats_skipped_excluded(self, store):
+        """查看答案（skipped）不计入总题数。"""
+        qid = store.save_question("db1", "easy", "SELECT", "Q1", "SELECT 1")
+        store.save_history(qid, "（已查看答案）", "skipped")
+        stats = store.get_stats()
+        assert stats["total"] == 0
+        assert stats["correct"] == 0
+
+    def test_get_stats_multiple_questions(self, store):
+        """两道不同题，各算一次。"""
+        qid1 = store.save_question("db1", "easy", "SELECT", "Q1", "SELECT 1")
+        qid2 = store.save_question("db1", "easy", "SELECT", "Q2", "SELECT 2")
+        store.save_history(qid1, "SELECT 1", "correct")
+        store.save_history(qid2, "WRONG", "wrong", "syntax")
+        stats = store.get_stats()
         assert stats["total"] == 2
         assert stats["correct"] == 1
-        assert stats["accuracy"] == 0.5
 
     def test_dimension_stats(self, store):
         qid1 = store.save_question("db1", "easy", "SELECT", "Q1", "SELECT 1")

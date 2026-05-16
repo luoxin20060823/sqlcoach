@@ -266,6 +266,7 @@ def _clear_question_state():
         "last_optimization", "show_answer", "question_finished",
         "last_user_sql", "last_question",
         "run_result_columns", "run_result_rows", "run_error", "has_run_sql",
+        "_skipped_recorded",
     ]:
         st.session_state.pop(key, None)
     st.session_state["hint_level"] = 0

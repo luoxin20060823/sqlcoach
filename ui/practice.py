@@ -68,7 +68,10 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
     with col3:
         hint_btn = st.button("提示", use_container_width=True)
     with col4:
-        give_up_btn = st.button("查看答案", use_container_width=True)
+        # 「查看答案」/「隐藏答案」切换：show_answer 决定按钮文案
+        showing_answer = bool(st.session_state.get("show_answer"))
+        toggle_label = "隐藏答案" if showing_answer else "查看答案"
+        toggle_answer_btn = st.button(toggle_label, use_container_width=True)
 
     _display_hints()
 
@@ -85,8 +88,11 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
     if hint_btn and current_q and llm_client:
         _request_hint(llm_client, full_schema_sql, current_q)
 
-    if give_up_btn:
-        _handle_give_up(store, current_q)
+    if toggle_answer_btn:
+        if showing_answer:
+            _hide_answer()
+        else:
+            _handle_show_answer(store, current_q)
 
 
 def _handle_run_sql(full_schema_sql, user_sql):
@@ -152,7 +158,8 @@ def _display_verdict():
 
     if result.get("analysis"):
         st.markdown(f"**分析**: {result['analysis']}")
-    if result.get("suggestion"):
+    # 答错（wrong / flawed）时不再显示「建议」字段，避免提前剧透解题方向
+    if result.get("suggestion") and result["verdict"] not in ("wrong", "flawed"):
         st.markdown(f"**建议**: {result['suggestion']}")
 
     if st.session_state.get("show_answer"):
@@ -168,7 +175,7 @@ def _display_verdict():
         st.markdown(optimization)
 
     # 解析按钮：所有判题结果都允许查看解析（包括答对）
-    if not st.session_state.get("show_answer") and not st.session_state.get("last_explanation"):
+    if not st.session_state.get("last_explanation"):
         if st.button("查看解析", type="secondary"):
             _generate_explanation()
 
@@ -295,52 +302,56 @@ def _prefetch_next_question_async(llm_client, store, full_schema_sql):
     threading.Thread(target=_worker, daemon=True).start()
 
 
-def _handle_give_up(store, current_q):
-    """查看答案：保存为 skipped 记录，进入"已查看答案"状态。"""
-    qid = st.session_state.get("current_question_id")
-    if qid and current_q:
-        store.save_history(qid, "（已查看答案）", "skipped", "")
+def _handle_show_answer(store, current_q):
+    """查看答案：进入"已查看答案"状态，标准答案显示出来。
 
-    # 让 _display_verdict 知道当前题目是哪一道
+    需求：查看答案不计入总题数（统计中已排除 skipped）。
+    同一题首次查看时记一条 skipped 历史，再次查看不重复写入。
+    """
+    qid = st.session_state.get("current_question_id")
+    if qid and current_q and not st.session_state.get("_skipped_recorded"):
+        store.save_history(qid, "（已查看答案）", "skipped", "")
+        st.session_state["_skipped_recorded"] = True
+
     if current_q:
         st.session_state["last_question"] = current_q
 
     st.session_state["show_answer"] = True
+    # 仅当尚未提交过判题结果时，标记为「已查看答案」并填一个占位 result
+    # 已经有 last_result（用户先提交过 wrong）时不要覆盖原始判定
+    if not st.session_state.get("last_result"):
+        st.session_state["last_result"] = {
+            "verdict": "skipped",
+            "analysis": "你选择了直接查看答案。",
+            "suggestion": "仔细学习标准答案，理解思路后可以再做一次。",
+            "layer": 0,
+        }
     st.session_state["question_finished"] = True
-    st.session_state["last_result"] = {
-        "verdict": "skipped",
-        "analysis": "你选择了直接查看答案。",
-        "suggestion": "仔细学习标准答案，理解思路后可以再做一次。",
-        "layer": 0,
-    }
-    # 同步统计
     st.session_state["stats"] = store.get_stats()
+    st.rerun()
+
+
+def _hide_answer():
+    """隐藏答案：仅切回 show_answer=False，不改写历史。"""
+    st.session_state["show_answer"] = False
     st.rerun()
 
 
 def _render_post_answer_actions():
     st.markdown("---")
-    c1, c2 = st.columns([1, 3])
-    with c1:
-        if st.button("下一题", type="primary", use_container_width=True):
-            for key in [
-                "last_result", "last_explanation", "last_explanation_error",
-                "show_answer", "question_finished", "last_user_sql",
-                "last_question", "last_optimization",
-                "run_result_columns", "run_result_rows", "run_error",
-                "has_run_sql",
-            ]:
-                st.session_state.pop(key, None)
-            st.session_state["hint_level"] = 0
-            st.session_state["hints"] = []
-            st.session_state["trigger_new_question"] = True
-            st.rerun()
-    with c2:
-        cached = st.session_state.get("prefetched_question")
-        if cached:
-            st.caption("下一题已在后台准备好，点「下一题」直接显示。")
-        else:
-            st.caption("当前题目已结束，点击生成下一道。")
+    if st.button("下一题", type="primary", use_container_width=False):
+        for key in [
+            "last_result", "last_explanation", "last_explanation_error",
+            "show_answer", "question_finished", "last_user_sql",
+            "last_question", "last_optimization",
+            "run_result_columns", "run_result_rows", "run_error",
+            "has_run_sql", "_skipped_recorded",
+        ]:
+            st.session_state.pop(key, None)
+        st.session_state["hint_level"] = 0
+        st.session_state["hints"] = []
+        st.session_state["trigger_new_question"] = True
+        st.rerun()
 
 
 def _display_hints():
