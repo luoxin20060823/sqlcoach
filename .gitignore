@@ -1,0 +1,35 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+
+# 用户数据：API Key、SQLite 数据库、缓存
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# 工具痕迹
+.superpowers/
+.claude/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Electron
+electron/node_modules/
+electron/dist/
+node_modules/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 编辑产物
+*.log
+*.tmp

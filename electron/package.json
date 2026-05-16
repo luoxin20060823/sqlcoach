@@ -1,0 +1,21 @@
+{
+  "name": "sql-coach",
+  "version": "1.0.0",
+  "description": "SQL随身教练 - 基于大模型的SQL辅助学习系统",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.sqlcoach.app",
+    "productName": "SQL随身教练",
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

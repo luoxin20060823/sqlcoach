@@ -1,0 +1,43 @@
+"""自由答疑 Tab — 多轮 SQL 答疑"""
+import streamlit as st
+from agent.tutor import Tutor
+
+
+def render_chat_tab(llm_client, schema_sql):
+    st.subheader("💬 自由答疑")
+    if not llm_client:
+        st.info("请先在侧边栏设置 API Key。")
+        return
+
+    if schema_sql:
+        st.caption("已绑定当前数据库，提问可结合具体表名/字段。")
+    else:
+        st.caption("尚未生成数据库。可以问通用 SQL 问题；如需基于具体 schema，请先生成数据库。")
+
+    history = st.session_state.setdefault("chat_history", [])
+
+    # 渲染历史
+    for msg in history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    user_input = st.chat_input("问点 SQL 相关的问题，例如：JOIN 和子查询有什么区别？")
+    if not user_input:
+        col1, col2 = st.columns([1, 8])
+        with col1:
+            if st.button("🧹 清空对话"):
+                st.session_state["chat_history"] = []
+                st.rerun()
+        return
+
+    history.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    with st.chat_message("assistant"):
+        with st.spinner("思考中..."):
+            tutor = Tutor(llm_client)
+            answer = tutor.chat(schema_sql, history[:-1], user_input)
+            st.markdown(answer)
+    history.append({"role": "assistant", "content": answer})
+    st.session_state["chat_history"] = history
