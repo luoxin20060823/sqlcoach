@@ -248,21 +248,20 @@ const TOTAL = 14;
 // SLIDE 3: 系统架构与技术栈
 // ============================================================
 (function () {
-  const s = darkSlide();
-  darkTitled(s, "系统架构与技术栈", "5 层架构 · 单一外部依赖（LLM API）");
+  const s = lightSlide("系统架构与技术栈", "5 层架构 · 单一外部依赖（LLM API）");
 
   const layers = [
-    { label: "前端展示层 — Streamlit Web UI",        desc: "6 大功能 Tab · 自定义 CSS 主题 · streamlit-ace SQL 编辑器", color: C.accent2, y: 1.4  },
-    { label: "Agent 引擎层 — Python",                desc: "SchemaGen · QuestionGen · JudgeEngine · Tutor · Analyzer", color: C.accent,  y: 2.15 },
-    { label: "调度层 — LLMClient",                  desc: "OpenAI 兼容协议 · 并发批量 · JSON Mode · 失败回退",         color: C.green,   y: 2.90 },
-    { label: "数据层 — SQLite",                     desc: "题库 / 答题历史 / Schema 缓存 / 考试记录",                color: C.amber,   y: 3.65 },
-    { label: "外部模型 — DeepSeek API",             desc: "deepseek-chat（V3）— 单模型驱动全部 Agent 调用",           color: C.pink,    y: 4.40 },
+    { label: "前端展示层 — Streamlit Web UI",        desc: "6 大功能 Tab · 自定义 CSS 主题 · streamlit-ace SQL 编辑器", color: C.accent2,  y: 1.4  },
+    { label: "Agent 引擎层 — Python",                desc: "SchemaGen · QuestionGen · JudgeEngine · Tutor · Analyzer", color: C.blue600,  y: 2.15 },
+    { label: "调度层 — LLMClient",                   desc: "OpenAI 兼容协议 · 并发批量 · JSON Mode · 失败回退",         color: C.green600, y: 2.90 },
+    { label: "数据层 — SQLite",                      desc: "题库 / 答题历史 / Schema 缓存 / 考试记录",                color: C.amber600, y: 3.65 },
+    { label: "外部模型 — DeepSeek API",              desc: "deepseek-chat（V3）— 单模型驱动全部 Agent 调用",           color: C.pink600,  y: 4.40 },
   ];
 
   layers.forEach((layer) => {
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0.9, y: layer.y, w: 8.2, h: 0.6,
-      fill: { color: C.darkBg2 }, shadow: shadow(),
+      fill: { color: C.lightCard }, shadow: shadow(),
     });
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0.9, y: layer.y, w: 0.08, h: 0.6, fill: { color: layer.color },
@@ -526,26 +525,25 @@ const TOTAL = 14;
 // SLIDE 7: 三层判题机制
 // ============================================================
 (function () {
-  const s = darkSlide();
-  darkTitled(s, "亮点 3 · 三层判题引擎", "默认快速路径 ~50ms · 可选 LLM 语义复核");
+  const s = lightSlide("亮点 3 · 三层判题引擎", "默认快速路径 ~50ms · 可选 LLM 语义复核");
 
   const layers = [
     { num: "1", title: "语法检查", tag: "无 LLM",
       desc: "SQLite EXPLAIN 解析 SQL\n语法错误零成本拦截",
-      color: C.accent },
+      color: C.blue600 },
     { num: "2", title: "执行结果对比", tag: "无 LLM",
       desc: "在 :memory: 数据库执行\n排序后比较，忽略字段顺序",
-      color: C.green },
+      color: C.green600 },
     { num: "3", title: "LLM 语义复核", tag: "可选",
       desc: "结果一致时审查 SQL 逻辑\n识别 WHERE 1=1 等碰巧情况",
-      color: C.amber },
+      color: C.amber600 },
   ];
 
   layers.forEach((layer, i) => {
     const y = 1.45 + i * 1.0;
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0.6, y: y, w: 8.8, h: 0.85,
-      fill: { color: C.darkBg2 }, shadow: shadow(),
+      fill: { color: C.lightCard }, shadow: shadow(),
     });
     s.addShape(pres.shapes.RECTANGLE, {
       x: 0.6, y: y, w: 0.08, h: 0.85, fill: { color: layer.color },
@@ -555,7 +553,7 @@ const TOTAL = 14;
     });
     s.addText(layer.num, {
       x: 0.95, y: y + 0.18, w: 0.5, h: 0.5,
-      fontSize: 22, color: C.darkBg, bold: true,
+      fontSize: 22, color: "FFFFFF", bold: true,
       align: "center", valign: "middle", margin: 0,
     });
     s.addText(layer.title, {
@@ -580,22 +578,22 @@ const TOTAL = 14;
   // 性能对比
   s.addShape(pres.shapes.RECTANGLE, {
     x: 0.6, y: 4.55, w: 8.8, h: 1.0,
-    fill: { color: C.darkBg2 }, shadow: shadow(),
+    fill: { color: C.lightCard }, shadow: shadow(),
   });
   s.addText("快速路径性能", {
     x: 0.85, y: 4.62, w: 4, h: 0.32,
-    fontSize: 12, fontFace: FONT_BODY, color: C.green, bold: true, margin: 0,
+    fontSize: 12, fontFace: FONT_BODY, color: C.green600, bold: true, margin: 0,
   });
   // 三个对比柱
   const compareItems = [
-    { label: "纯 LLM 方案",  value: "~10s",   width: 7.0, color: C.red,   bg: "7F1D1D" },
-    { label: "本系统快速路径", value: "~50ms", width: 0.6, color: C.green, bg: "14532D" },
+    { label: "纯 LLM 方案",   value: "~10s",  width: 7.0, color: C.red600 },
+    { label: "本系统快速路径", value: "~50ms", width: 0.6, color: C.green600 },
   ];
   compareItems.forEach((c, i) => {
     const y = 4.95 + i * 0.27;
     s.addText(c.label, {
       x: 0.85, y: y, w: 1.5, h: 0.22,
-      fontSize: 9.5, fontFace: FONT_BODY, color: C.textMuted, margin: 0,
+      fontSize: 9.5, fontFace: FONT_BODY, color: C.textDark, margin: 0,
     });
     s.addShape(pres.shapes.RECTANGLE, {
       x: 2.5, y: y + 0.04, w: c.width, h: 0.16, fill: { color: c.color },
@@ -1096,8 +1094,7 @@ const TOTAL = 14;
 // SLIDE 14: 总结与展望
 // ============================================================
 (function () {
-  const s = darkSlide();
-  darkTitled(s, "总结与展望", "感谢倾听 · 期待您的建议");
+  const s = lightSlide("总结与展望", "感谢倾听 · 期待您的建议");
 
   // 装饰
   s.addShape(pres.shapes.OVAL, {
@@ -1108,7 +1105,7 @@ const TOTAL = 14;
   // 左：项目成果
   s.addText("项目成果", {
     x: 0.6, y: 1.4, w: 4.5, h: 0.4,
-    fontSize: 18, fontFace: FONT_BODY, color: C.green, bold: true, margin: 0,
+    fontSize: 18, fontFace: FONT_BODY, color: C.green600, bold: true, margin: 0,
   });
   const achievements = [
     "完整 SQL 学习闭环（6 大功能 Tab）",
@@ -1121,8 +1118,8 @@ const TOTAL = 14;
   ];
   achievements.forEach((a, i) => {
     s.addText([
-      { text: ">  ", options: { color: C.green } },
-      { text: a, options: { color: C.textMuted } },
+      { text: ">  ", options: { color: C.green600 } },
+      { text: a, options: { color: C.textDark } },
     ], {
       x: 0.8, y: 1.85 + i * 0.36, w: 4.3, h: 0.32,
       fontSize: 12, fontFace: FONT_BODY, margin: 0,
@@ -1132,7 +1129,7 @@ const TOTAL = 14;
   // 右：扩展方向
   s.addText("扩展方向", {
     x: 5.5, y: 1.4, w: 4.0, h: 0.4,
-    fontSize: 18, fontFace: FONT_BODY, color: C.amber, bold: true, margin: 0,
+    fontSize: 18, fontFace: FONT_BODY, color: C.amber600, bold: true, margin: 0,
   });
   const futures = [
     "自适应难度（基于能力评分）",
@@ -1145,8 +1142,8 @@ const TOTAL = 14;
   ];
   futures.forEach((f, i) => {
     s.addText([
-      { text: ">  ", options: { color: C.amber } },
-      { text: f, options: { color: C.textMuted } },
+      { text: ">  ", options: { color: C.amber600 } },
+      { text: f, options: { color: C.textDark } },
     ], {
       x: 5.7, y: 1.85 + i * 0.36, w: 3.8, h: 0.32,
       fontSize: 12, fontFace: FONT_BODY, margin: 0,
@@ -1155,13 +1152,13 @@ const TOTAL = 14;
 
   // 底栏
   s.addShape(pres.shapes.RECTANGLE, {
-    x: 0, y: 5.05, w: 10, h: 0.575, fill: { color: C.darkBg2 },
+    x: 0, y: 5.05, w: 10, h: 0.575, fill: { color: C.blue50 },
   });
   s.addText(
     "GitHub: github.com/luoxin20060823/sqlcoach   |   在线试用：sqlcoach-hkj6rtcdfbgkxebdzeuegd.streamlit.app",
     {
       x: 0.6, y: 5.15, w: 8.8, h: 0.5,
-      fontSize: 11, fontFace: FONT_BODY, color: C.textMuted,
+      fontSize: 11, fontFace: FONT_BODY, color: C.blue700,
       align: "center", margin: 0,
     }
   );
