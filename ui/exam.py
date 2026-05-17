@@ -99,26 +99,6 @@ def _render_setup(llm_client, store):
             help="建议为 3 的倍数，便于难度均分；非 3 的倍数也可，会按 easy/medium/hard 顺序补齐",
         )
 
-
-def _build_runs_dataframe(runs: list) -> pd.DataFrame:
-    """统一历史成绩表格：分数百分制，列清晰。"""
-    rows = []
-    for r in runs:
-        qc = r.get("question_count", 0) or 0
-        cc = r.get("correct_count", 0) or 0
-        ts = r.get("total_score", 0) or 0
-        # 优先使用 total_score（已是 100 分制）；旧记录回退到正确率折算
-        score_100 = ts if ts > 0 else (round(cc / qc * 100) if qc else 0)
-        rows.append({
-            "领域": r.get("schema_name", ""),
-            "题数": qc,
-            "正确": f"{cc}/{qc}",
-            "分数": f"{score_100} 分",
-            "用时": _fmt_duration(r.get("duration_seconds", 0) or 0),
-            "时间": r.get("finished_at", ""),
-        })
-    return pd.DataFrame(rows)
-
     col3, col4 = st.columns(2)
     with col3:
         time_limit_min = st.number_input(
@@ -152,6 +132,26 @@ def _build_runs_dataframe(runs: list) -> pd.DataFrame:
             return
         _start_exam(llm_client, store, schema_name, int(question_count),
                     int(time_limit_min) * 60, schema_sql)
+
+
+def _build_runs_dataframe(runs: list) -> pd.DataFrame:
+    """统一历史成绩表格：分数百分制，列清晰。"""
+    rows = []
+    for r in runs:
+        qc = r.get("question_count", 0) or 0
+        cc = r.get("correct_count", 0) or 0
+        ts = r.get("total_score", 0) or 0
+        # 优先使用 total_score（已是 100 分制）；旧记录回退到正确率折算
+        score_100 = ts if ts > 0 else (round(cc / qc * 100) if qc else 0)
+        rows.append({
+            "领域": r.get("schema_name", ""),
+            "题数": qc,
+            "正确": f"{cc}/{qc}",
+            "分数": f"{score_100} 分",
+            "用时": _fmt_duration(r.get("duration_seconds", 0) or 0),
+            "时间": r.get("finished_at", ""),
+        })
+    return pd.DataFrame(rows)
 
 
 def _allocate_difficulties(count: int) -> list:
