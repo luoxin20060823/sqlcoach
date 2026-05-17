@@ -11,7 +11,7 @@ from ui.report import render_report_tab
 from ui.browser import render_browser_tab
 from ui.review import render_review_tab
 from ui.chat import render_chat_tab
-from ui.challenge import render_challenge_tab
+from ui.exam import render_exam_tab
 from config import (
     DOMAINS, QUESTION_TYPES,
     load_api_key, save_api_key, clear_api_key,
@@ -445,7 +445,7 @@ def main():
     sidebar()
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "练习", "挑战模式", "分析报告", "数据浏览", "错题复习", "自由答疑",
+        "练习", "考试模式", "分析报告", "数据浏览", "错题复习", "自由答疑",
     ])
 
     with tab1:
@@ -458,7 +458,7 @@ def main():
         )
 
     with tab2:
-        render_challenge_tab(
+        render_exam_tab(
             st.session_state.get("llm_client"),
             st.session_state["store"],
         )

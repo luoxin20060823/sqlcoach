@@ -58,6 +58,8 @@ class DataStore:
                     question_count INTEGER NOT NULL,
                     correct_count INTEGER NOT NULL,
                     duration_seconds INTEGER NOT NULL,
+                    total_score INTEGER NOT NULL DEFAULT 0,
+                    time_limit_seconds INTEGER NOT NULL DEFAULT 0,
                     finished_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
 
@@ -72,6 +74,8 @@ class DataStore:
             for stmt in [
                 "ALTER TABLE question_bank ADD COLUMN question_type TEXT NOT NULL DEFAULT ''",
                 "ALTER TABLE question_bank ADD COLUMN schema_hash TEXT",
+                "ALTER TABLE challenge_runs ADD COLUMN total_score INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE challenge_runs ADD COLUMN time_limit_seconds INTEGER NOT NULL DEFAULT 0",
             ]:
                 try:
                     conn.execute(stmt)
@@ -311,6 +315,30 @@ class DataStore:
                 (schema_name, difficulty, question_count, correct_count, duration_seconds),
             )
             return cur.lastrowid
+
+    def save_exam_run(self, schema_name: str, question_count: int,
+                      correct_count: int, total_score: int,
+                      duration_seconds: int, time_limit_seconds: int) -> int:
+        """保存考试记录（difficulty 字段填 'mixed'）。"""
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO challenge_runs "
+                "(schema_name, difficulty, question_count, correct_count, "
+                " duration_seconds, total_score, time_limit_seconds) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (schema_name, "mixed", question_count, correct_count,
+                 duration_seconds, total_score, time_limit_seconds),
+            )
+            return cur.lastrowid
+
+    def get_exam_runs(self, limit: int = 20) -> list:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM challenge_runs WHERE difficulty = 'mixed' "
+                "ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def get_challenge_runs(self, limit: int = 20) -> list:
         with self._get_conn() as conn:

@@ -123,6 +123,52 @@ class QuestionGenerator:
                 questions.append(q)
         return questions
 
+    def generate_mixed_batch(self, schema: str,
+                              difficulty_counts: dict) -> list:
+        """按难度配额并发生成（考试模式用）。
+
+        difficulty_counts: {"easy": 4, "medium": 4, "hard": 2}
+        返回: 已生成的题目列表（每题含 difficulty / question_type / answer_sql 等）
+        """
+        max_tokens = int(self._settings.get("max_tokens_question", 1024))
+        type_pool = list(QUESTION_TYPES.keys())
+        plan = []  # [(difficulty, question_type), ...]
+        for diff, n in difficulty_counts.items():
+            for _ in range(int(n)):
+                plan.append((diff, random.choice(type_pool)))
+
+        requests = []
+        for diff, t in plan:
+            type_desc = QUESTION_TYPES.get(t, t)
+            requests.append({
+                "system_prompt": QUESTION_GEN_SYSTEM,
+                "user_message": QUESTION_GEN_USER.format(
+                    schema=schema,
+                    difficulty=diff,
+                    difficulty_desc=DIFFICULTY_MAP.get(diff, ""),
+                    question_type=t,
+                    question_type_desc=type_desc,
+                ),
+                "temperature": 0.4,
+                "max_tokens": max_tokens,
+            })
+
+        # 并发上限按总题数与 6 取较小值，避免请求过密
+        responses = self.llm.chat_many(
+            requests, max_workers=min(len(plan), 6)
+        )
+
+        questions = []
+        for resp, (diff, t) in zip(responses, plan):
+            if not resp:
+                continue
+            q = self._parse_response(resp)
+            if q and self._validate_sql(schema, q.get("answer_sql", "")):
+                q["difficulty"] = diff
+                q.setdefault("question_type", t)
+                questions.append(q)
+        return questions
+
     # ---- 工具 ----
     @staticmethod
     def get_types() -> dict:
