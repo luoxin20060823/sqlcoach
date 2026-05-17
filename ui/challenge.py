@@ -30,7 +30,7 @@ def render_challenge_tab(llm_client, store):
     elif phase == "running":
         _render_running(store)
     elif phase == "finished":
-        _render_finished(store)
+        _render_finished(llm_client, store)
 
 
 # ---------------- SETUP ----------------
@@ -216,7 +216,7 @@ def _finalize_challenge(state, store):
 
 
 # ---------------- FINISHED ----------------
-def _render_finished(store):
+def _render_finished(llm_client, store):
     state = st.session_state["challenge"]
     total = len(state["questions"])
     correct = state["correct"]
@@ -262,7 +262,19 @@ def _render_finished(store):
             )
 
     st.markdown("---")
-    st.markdown("### 复盘")
+
+    # 复盘 + 一键生成全部解析
+    review_header_col1, review_header_col2 = st.columns([3, 2])
+    with review_header_col1:
+        st.markdown("### 复盘")
+    with review_header_col2:
+        all_done = all(r.get("explanation") for r in state["results"])
+        if not all_done and llm_client:
+            if st.button("一键生成全部 AI 解析",
+                         use_container_width=True,
+                         help="并发请求 LLM，约 5~15 秒"):
+                _explain_all(llm_client, state)
+
     for i, (q, r) in enumerate(zip(state["questions"], state["results"]), 1):
         verdict_label = {"correct": "正确", "wrong": "错误",
                          "flawed": "瑕疵"}.get(r["verdict"], r["verdict"])
@@ -273,16 +285,93 @@ def _render_finished(store):
             st.markdown(f"**题目**: {q['question']}")
             st.markdown(f"**知识点**: {q.get('knowledge_point', '')}")
             if r.get("analysis"):
-                st.markdown(f"**分析**: {r['analysis']}")
+                st.markdown(f"**判题分析**: {r['analysis']}")
             st.markdown("**你的答案**:")
             st.code(r["user_sql"] or "（未作答）", language="sql")
             st.markdown("**标准答案**:")
             st.code(q["answer_sql"], language="sql")
 
+            # AI 详细解析
+            explanation = r.get("explanation")
+            if explanation:
+                st.markdown("**AI 详细解析**")
+                st.markdown(explanation)
+            elif llm_client:
+                if st.button("生成 AI 详细解析", key=f"ch_explain_{i}"):
+                    _explain_one(llm_client, state, i - 1)
+
     st.markdown("---")
     if st.button("再来一次", type="primary"):
         st.session_state["challenge"] = {"phase": "setup"}
         st.rerun()
+
+
+def _explain_one(llm_client, state, idx: int):
+    """为单道题生成详细解析。"""
+    from agent.tutor import Tutor
+    q = state["questions"][idx]
+    r = state["results"][idx]
+    with st.spinner("生成详细解析..."):
+        try:
+            tutor = Tutor(llm_client)
+            explanation = tutor.explain(
+                schema=state["schema_sql"],
+                question=q.get("question", ""),
+                answer_sql=q.get("answer_sql", ""),
+                user_sql=r.get("user_sql", "") or "（未作答）",
+                verdict=r.get("verdict", "wrong"),
+                analysis=r.get("analysis", ""),
+            )
+            r["explanation"] = explanation
+        except Exception as e:
+            r["explanation"] = f"解析生成失败：{e}"
+    st.rerun()
+
+
+def _explain_all(llm_client, state):
+    """并发为全部题目生成解析（已生成的跳过）。"""
+    from agent.tutor import Tutor
+    from prompts.templates import TUTOR_SYSTEM, TUTOR_USER
+
+    pending = [
+        (i, q, r) for i, (q, r) in enumerate(zip(state["questions"], state["results"]))
+        if not r.get("explanation")
+    ]
+    if not pending:
+        return
+
+    requests = []
+    for _, q, r in pending:
+        requests.append({
+            "system_prompt": TUTOR_SYSTEM,
+            "user_message": TUTOR_USER.format(
+                schema=state["schema_sql"],
+                question=q.get("question", ""),
+                answer_sql=q.get("answer_sql", ""),
+                user_sql=r.get("user_sql", "") or "（未作答）",
+                verdict=r.get("verdict", "wrong"),
+                analysis=r.get("analysis", ""),
+            ),
+            "temperature": 0.3,
+            "max_tokens": 1024,
+        })
+
+    with st.spinner(f"并发生成 {len(pending)} 道题的解析..."):
+        # chat_many 默认走 chat_json，但解析是自然语言所以用自定义 worker 走 chat
+        def _worker(req):
+            return llm_client.chat(
+                req["system_prompt"], req["user_message"],
+                temperature=req["temperature"],
+                max_tokens=req["max_tokens"],
+            )
+
+        try:
+            responses = llm_client.chat_many(requests, worker=_worker, max_workers=4)
+            for (i, _, r), resp in zip(pending, responses):
+                r["explanation"] = resp or "（解析生成失败，请单独重试）"
+        except Exception as e:
+            st.error(f"批量生成失败：{e}")
+    st.rerun()
 
 
 # ---------------- 工具 ----------------
