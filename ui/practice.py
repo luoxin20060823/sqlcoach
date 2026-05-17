@@ -6,6 +6,7 @@ import streamlit as st
 
 from config import QUESTION_TYPES, load_settings
 from ui.sql_editor import sql_editor
+from ui.styles import question_card, verdict_banner, empty_state
 
 
 def render_practice_tab(llm_client, store, full_schema_sql, schema_display, current_question):
@@ -23,7 +24,11 @@ def render_practice_tab(llm_client, store, full_schema_sql, schema_display, curr
     )
 
     if not full_schema_sql:
-        st.info("请先在侧边栏选择领域并点击「生成数据库」，再点击「生成题目」。")
+        empty_state(
+            "database",
+            "还没有数据库，开始练习需要先生成一个",
+            "在左侧侧边栏选择领域 → 点「生成数据库」 → 点「生成题目」"
+        )
         return
 
     with st.expander("查看当前数据库结构", expanded=False):
@@ -32,15 +37,21 @@ def render_practice_tab(llm_client, store, full_schema_sql, schema_display, curr
     current_q = current_question or st.session_state.get("last_question")
     if current_q:
         st.markdown("### 当前题目")
-        difficulty_labels = {"easy": "初级", "medium": "中级", "hard": "高级"}
         diff = st.session_state.get("current_difficulty", "easy")
         qtype = current_q.get("question_type", "")
         qtype_label = QUESTION_TYPES.get(qtype, qtype) if qtype else ""
-        st.markdown(f"**难度**: {difficulty_labels.get(diff, diff)}")
-        if qtype_label:
-            st.markdown(f"**类型**: {qtype_label}")
-        st.markdown(f"**知识点**: {current_q.get('knowledge_point', '')}")
-        st.markdown(f"> {current_q.get('question', '')}")
+        question_card(
+            question=current_q.get("question", ""),
+            difficulty=diff,
+            question_type_label=qtype_label,
+            knowledge_point=current_q.get("knowledge_point", ""),
+        )
+    else:
+        empty_state(
+            "exam",
+            "已加载数据库，等你点「生成题目」开始作答",
+            "在左侧侧边栏选择难度和题目类型，再点「生成题目」"
+        )
 
     _display_verdict()
 
@@ -156,19 +167,13 @@ def _display_verdict():
     if not result:
         return
     st.divider()
-    labels = {
-        "correct": "正确",
-        "flawed": "结果正确但逻辑有瑕疵",
-        "wrong": "错误",
-        "skipped": "已查看答案",
-    }
-    st.markdown(f"## {labels.get(result['verdict'], result['verdict'])}")
-
-    if result.get("analysis"):
-        st.markdown(f"**分析**: {result['analysis']}")
-    # 答错（wrong / flawed）时不再显示「建议」字段，避免提前剧透解题方向
-    if result.get("suggestion") and result["verdict"] not in ("wrong", "flawed"):
-        st.markdown(f"**建议**: {result['suggestion']}")
+    # 答错（wrong / flawed）时不显示「建议」字段，避免提前剧透解题方向
+    show_suggestion = result.get("verdict") not in ("wrong", "flawed")
+    verdict_banner(
+        verdict=result.get("verdict", ""),
+        analysis=result.get("analysis", ""),
+        suggestion=result.get("suggestion", "") if show_suggestion else "",
+    )
 
     if st.session_state.get("show_answer"):
         current_q = st.session_state.get("last_question") or {}

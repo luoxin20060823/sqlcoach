@@ -277,6 +277,157 @@ section[data-testid="stSidebar"] .stButton > button {
     background: linear-gradient(90deg, #2563eb, #7c3aed);
     transition: width .4s ease;
 }
+
+/* === 题目卡（方案 F） === */
+.question-card {
+    position: relative;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 22px 18px 26px;
+    margin: 12px 0 18px 0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+}
+.question-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #2563eb, #7c3aed);
+}
+.question-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.question-card-text {
+    font-size: 1.0rem;
+    line-height: 1.6;
+    color: #0f172a;
+    border-left: 3px solid #2563eb;
+    background: #f8fafc;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 0;
+}
+
+/* === 状态药丸 chip === */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.chip-difficulty-easy {
+    background: #d1fae5; color: #047857;
+}
+.chip-difficulty-medium {
+    background: #fef3c7; color: #b45309;
+}
+.chip-difficulty-hard {
+    background: #fee2e2; color: #b91c1c;
+}
+.chip-knowledge {
+    background: #e0e7ff; color: #4338ca;
+}
+.chip-type {
+    background: #f1f5f9; color: #475569;
+}
+
+/* === 判题结果卡（方案 F） === */
+.verdict-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border-left: 5px solid;
+    margin: 14px 0;
+}
+.verdict-banner-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: white;
+    flex-shrink: 0;
+}
+.verdict-banner-text {
+    flex: 1;
+}
+.verdict-banner-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 2px;
+}
+.verdict-banner-sub {
+    font-size: 0.85rem;
+    color: #475569;
+    line-height: 1.4;
+}
+.verdict-correct {
+    background: linear-gradient(90deg, #d1fae5, #ecfdf5);
+    border-left-color: #10b981;
+}
+.verdict-correct .verdict-banner-icon { background: #10b981; }
+.verdict-correct .verdict-banner-title { color: #047857; }
+
+.verdict-wrong {
+    background: linear-gradient(90deg, #fee2e2, #fef2f2);
+    border-left-color: #ef4444;
+}
+.verdict-wrong .verdict-banner-icon { background: #ef4444; }
+.verdict-wrong .verdict-banner-title { color: #b91c1c; }
+
+.verdict-flawed {
+    background: linear-gradient(90deg, #fef3c7, #fffbeb);
+    border-left-color: #f59e0b;
+}
+.verdict-flawed .verdict-banner-icon { background: #f59e0b; }
+.verdict-flawed .verdict-banner-title { color: #b45309; }
+
+.verdict-skipped {
+    background: linear-gradient(90deg, #e0e7ff, #eef2ff);
+    border-left-color: #6366f1;
+}
+.verdict-skipped .verdict-banner-icon { background: #6366f1; }
+.verdict-skipped .verdict-banner-title { color: #4338ca; }
+
+/* === 空状态插图（方案 K） === */
+.empty-state {
+    text-align: center;
+    padding: 48px 16px;
+    background: white;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    margin: 20px 0;
+}
+.empty-state-svg {
+    margin: 0 auto 16px auto;
+    display: block;
+}
+.empty-state-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 6px 0;
+}
+.empty-state-desc {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0;
+    line-height: 1.5;
+}
 </style>
 """
 
@@ -380,5 +531,183 @@ def progress_card(label: str, current: int, total: int, suffix: str = ""):
         f'<span><strong>{current}</strong>{suffix}</span></div>'
         f'<div class="progress-card-bar"><div class="progress-card-fill" style="width: {pct}%"></div></div>'
         '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ----------------- 题目卡 / 判题横幅（方案 F） -----------------
+
+_DIFF_LABELS = {"easy": "初级", "medium": "中级", "hard": "高级"}
+
+
+def _is_classic() -> bool:
+    try:
+        from config import load_settings
+        return load_settings().get("theme_version", "default") == "classic"
+    except Exception:
+        return False
+
+
+def _esc(text: str) -> str:
+    """轻量 HTML 转义，避免题目里 < > & 串到样式里。"""
+    if text is None:
+        return ""
+    return (str(text)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
+
+def question_card(question: str, difficulty: str = "",
+                  question_type_label: str = "",
+                  knowledge_point: str = ""):
+    """渲染当前题目的卡片：标签 chip + 题目正文。"""
+    if _is_classic():
+        if difficulty:
+            st.markdown(f"**难度**: {_DIFF_LABELS.get(difficulty, difficulty)}")
+        if question_type_label:
+            st.markdown(f"**类型**: {question_type_label}")
+        if knowledge_point:
+            st.markdown(f"**知识点**: {knowledge_point}")
+        st.markdown(f"> {question}")
+        return
+
+    chips = []
+    if difficulty:
+        diff_cls = f"chip-difficulty-{difficulty}"
+        chips.append(
+            f'<span class="chip {diff_cls}">{_DIFF_LABELS.get(difficulty, difficulty)}</span>'
+        )
+    if knowledge_point:
+        chips.append(f'<span class="chip chip-knowledge">{_esc(knowledge_point)}</span>')
+    if question_type_label:
+        chips.append(f'<span class="chip chip-type">{_esc(question_type_label)}</span>')
+
+    chips_html = (
+        f'<div class="question-card-meta">{"".join(chips)}</div>'
+        if chips else ""
+    )
+    st.markdown(
+        '<div class="question-card">'
+        f'{chips_html}'
+        f'<p class="question-card-text">{_esc(question)}</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def verdict_banner(verdict: str, analysis: str = "", suggestion: str = ""):
+    """渲染判题结果横幅。verdict ∈ correct/wrong/flawed/skipped。"""
+    titles = {
+        "correct": "正确",
+        "wrong": "错误",
+        "flawed": "结果对但逻辑有瑕疵",
+        "skipped": "已查看答案",
+    }
+    icons = {"correct": "✓", "wrong": "✕", "flawed": "!", "skipped": "?"}
+    klass = {
+        "correct": "verdict-correct",
+        "wrong": "verdict-wrong",
+        "flawed": "verdict-flawed",
+        "skipped": "verdict-skipped",
+    }.get(verdict, "verdict-skipped")
+
+    if _is_classic():
+        labels = {"correct": "正确", "wrong": "错误",
+                  "flawed": "结果正确但逻辑有瑕疵", "skipped": "已查看答案"}
+        st.markdown(f"## {labels.get(verdict, verdict)}")
+        if analysis:
+            st.markdown(f"**分析**: {analysis}")
+        if suggestion:
+            st.markdown(f"**建议**: {suggestion}")
+        return
+
+    title = titles.get(verdict, verdict)
+    icon = icons.get(verdict, "i")
+    sub_parts = []
+    if analysis:
+        sub_parts.append(_esc(analysis).replace("\n", "<br>"))
+    if suggestion:
+        sub_parts.append(f"<strong>建议</strong>：{_esc(suggestion)}")
+    sub_html = (
+        f'<div class="verdict-banner-sub">{"<br>".join(sub_parts)}</div>'
+        if sub_parts else ""
+    )
+    st.markdown(
+        f'<div class="verdict-banner {klass}">'
+        f'<div class="verdict-banner-icon">{icon}</div>'
+        f'<div class="verdict-banner-text">'
+        f'<div class="verdict-banner-title">{title}</div>'
+        f'{sub_html}'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ----------------- 空状态插图（方案 K） -----------------
+
+# 各种空状态的 SVG（纯内联，无外部资源依赖）
+_SVG = {
+    "database": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="60" cy="32" rx="36" ry="12" stroke="url(#dbg)" stroke-width="3" fill="#eff6ff"/>
+<path d="M24 32v28c0 6.6 16.1 12 36 12s36-5.4 36-12V32" stroke="url(#dbg)" stroke-width="3" fill="#eff6ff" fill-opacity="0.6"/>
+<path d="M24 60v28c0 6.6 16.1 12 36 12s36-5.4 36-12V60" stroke="url(#dbg)" stroke-width="3" fill="#eff6ff" fill-opacity="0.4"/>
+<defs><linearGradient id="dbg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+</svg>""",
+    "trophy": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M30 22h60v18c0 16.6-13.4 30-30 30s-30-13.4-30-30V22z" fill="#fef3c7" stroke="url(#tg)" stroke-width="3"/>
+<path d="M30 30h-8c-4.4 0-8 3.6-8 8 0 8 6 14 14 14M90 30h8c4.4 0 8 3.6 8 8 0 8-6 14-14 14" stroke="url(#tg)" stroke-width="3" fill="none"/>
+<rect x="48" y="80" width="24" height="6" fill="url(#tg)"/>
+<rect x="38" y="86" width="44" height="10" rx="3" fill="url(#tg)"/>
+<defs><linearGradient id="tg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#dc2626"/></linearGradient></defs>
+</svg>""",
+    "checkmark": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="60" cy="60" r="45" fill="#d1fae5" stroke="url(#ckg)" stroke-width="3"/>
+<path d="M40 62l14 14 28-32" stroke="url(#ckg)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<defs><linearGradient id="ckg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#10b981"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
+</svg>""",
+    "chat": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="14" y="22" width="70" height="52" rx="10" fill="#eff6ff" stroke="url(#cg)" stroke-width="3"/>
+<path d="M30 78l-6 14 18-14" fill="#eff6ff" stroke="url(#cg)" stroke-width="3" stroke-linejoin="round"/>
+<rect x="36" y="46" width="60" height="44" rx="10" fill="white" stroke="url(#cg)" stroke-width="3"/>
+<path d="M76 90l4 14-14-14" fill="white" stroke="url(#cg)" stroke-width="3" stroke-linejoin="round"/>
+<defs><linearGradient id="cg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+</svg>""",
+    "chart": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="14" y="20" width="92" height="80" rx="8" fill="#eff6ff" stroke="url(#chg)" stroke-width="3"/>
+<rect x="28" y="64" width="14" height="22" rx="3" fill="url(#chg)"/>
+<rect x="50" y="48" width="14" height="38" rx="3" fill="url(#chg)" fill-opacity="0.7"/>
+<rect x="72" y="34" width="14" height="52" rx="3" fill="url(#chg)" fill-opacity="0.5"/>
+<defs><linearGradient id="chg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+</svg>""",
+    "exam": """<svg class="empty-state-svg" width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="22" y="14" width="68" height="92" rx="8" fill="white" stroke="url(#eg)" stroke-width="3"/>
+<rect x="34" y="30" width="44" height="6" rx="2" fill="#e0e7ff"/>
+<rect x="34" y="46" width="44" height="6" rx="2" fill="#e0e7ff"/>
+<rect x="34" y="62" width="30" height="6" rx="2" fill="#e0e7ff"/>
+<circle cx="92" cy="86" r="18" fill="#fef3c7" stroke="url(#eg)" stroke-width="3"/>
+<text x="92" y="92" text-anchor="middle" font-size="18" font-weight="800" fill="#b45309">A</text>
+<defs><linearGradient id="eg" x1="0" y1="0" x2="120" y2="120"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+</svg>""",
+}
+
+
+def empty_state(kind: str, title: str, desc: str = ""):
+    """渲染带 SVG 插图的空状态。
+
+    kind: database / trophy / checkmark / chat / chart / exam
+    """
+    if _is_classic():
+        st.info(f"{title}{(' — ' + desc) if desc else ''}")
+        return
+
+    svg = _SVG.get(kind, _SVG["database"])
+    desc_html = f'<p class="empty-state-desc">{_esc(desc)}</p>' if desc else ""
+    st.markdown(
+        f'<div class="empty-state">{svg}'
+        f'<p class="empty-state-title">{_esc(title)}</p>'
+        f'{desc_html}'
+        f'</div>',
         unsafe_allow_html=True,
     )

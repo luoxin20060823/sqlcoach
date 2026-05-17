@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 from agent.judge import JudgeEngine
 from ui.sql_editor import sql_editor
+from ui.styles import question_card, verdict_banner, empty_state
 
 
 def render_review_tab(llm_client, store):
@@ -18,7 +19,11 @@ def render_review_tab(llm_client, store):
     )
 
     if not wrong:
-        st.info("还没有错题或放弃记录。继续做题吧。")
+        empty_state(
+            "checkmark",
+            "还没有错题，继续保持",
+            "做题答错或选择「查看答案」的题会出现在这里，方便针对性复习"
+        )
         return
 
     st.caption(f"共 {len(wrong)} 道待复习题。点列表中任意一行选择该题重新作答。")
@@ -58,11 +63,13 @@ def render_review_tab(llm_client, store):
         st.error("题目已不存在。")
         return
 
-    st.markdown(
-        f"**领域**: {q['schema_name']} ｜ **难度**: {q['difficulty']} ｜ "
-        f"**知识点**: {q['knowledge_point']}"
+    st.markdown("### 题目")
+    question_card(
+        question=q['question_text'],
+        difficulty=q['difficulty'],
+        knowledge_point=q['knowledge_point'],
     )
-    st.markdown(f"> {q['question_text']}")
+    st.caption(f"领域：{q['schema_name']}")
 
     schema_sql = _resolve_schema_sql(store, q["schema_name"])
     if not schema_sql:
@@ -104,14 +111,13 @@ def render_review_tab(llm_client, store):
     res_key = f"review_result_{qid}"
     if st.session_state.get(res_key):
         result = st.session_state[res_key]
-        labels = {"correct": "这次对了", "wrong": "仍然错误",
-                  "flawed": "结果对但逻辑有瑕疵"}
-        st.markdown(f"## {labels.get(result['verdict'], result['verdict'])}")
-        if result.get("analysis"):
-            st.markdown(f"**分析**: {result['analysis']}")
         # 答错时不显示「建议」
-        if result.get("suggestion") and result["verdict"] not in ("wrong", "flawed"):
-            st.markdown(f"**建议**: {result['suggestion']}")
+        show_suggestion = result["verdict"] not in ("wrong", "flawed")
+        verdict_banner(
+            verdict=result.get("verdict", ""),
+            analysis=result.get("analysis", ""),
+            suggestion=result.get("suggestion", "") if show_suggestion else "",
+        )
 
 
 def _resolve_schema_sql(store, domain: str) -> str:

@@ -25,6 +25,7 @@ from agent.preset_schemas import get_preset
 from agent.question_gen import QuestionGenerator
 from config import DOMAINS
 from ui.sql_editor import sql_editor
+from ui.styles import question_card, verdict_banner, empty_state
 
 
 # 难度分值权重（用于把 100 分平均按难度加权分配到每题）
@@ -275,9 +276,12 @@ def _render_running(store):
     diff_label = {"easy": "初级", "medium": "中级", "hard": "高级"}.get(
         q.get("difficulty", ""), q.get("difficulty", "")
     )
-    st.markdown(f"### 第 {idx + 1} 题（{diff_label}，{q.get('score', 0)} 分）")
-    st.markdown(f"**知识点**: {q.get('knowledge_point', '')}")
-    st.markdown(f"> {q.get('question', '')}")
+    st.markdown(f"### 第 {idx + 1} 题（{q.get('score', 0)} 分）")
+    question_card(
+        question=q.get("question", ""),
+        difficulty=q.get("difficulty", ""),
+        knowledge_point=q.get("knowledge_point", ""),
+    )
 
     with st.expander("数据库结构", expanded=False):
         st.code(state["schema_sql"], language="sql")

@@ -4,7 +4,7 @@ from agent.tutor import Tutor
 
 
 def render_chat_tab(llm_client, schema_sql):
-    from ui.styles import hero
+    from ui.styles import hero, empty_state
     history = st.session_state.get("chat_history", [])
     asked = len([m for m in history if m.get("role") == "user"])
     hero(
@@ -14,7 +14,11 @@ def render_chat_tab(llm_client, schema_sql):
     )
 
     if not llm_client:
-        st.info("请先在侧边栏设置 API Key。")
+        empty_state(
+            "chat",
+            "需要先配置 API Key 才能使用答疑",
+            "在左侧侧边栏的「高级设置」里粘贴你的 DeepSeek API Key 即可"
+        )
         return
 
     if schema_sql:

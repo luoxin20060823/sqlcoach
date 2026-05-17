@@ -7,7 +7,7 @@ from config import KNOWLEDGE_POINTS
 
 
 def render_report_tab(llm_client, store):
-    from ui.styles import hero
+    from ui.styles import hero, empty_state
 
     stats = store.get_stats()
     hero(
@@ -21,7 +21,11 @@ def render_report_tab(llm_client, store):
     )
 
     if stats["total"] == 0:
-        st.info("还没有答题记录，先去练习吧。")
+        empty_state(
+            "chart",
+            "还没有数据可以分析",
+            "去练习 Tab 完成几道题，再回来查看你的能力雷达图、趋势图和智能建议"
+        )
         return
 
     history = store.get_user_history(limit=200)
