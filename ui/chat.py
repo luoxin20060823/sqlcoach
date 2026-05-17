@@ -4,7 +4,15 @@ from agent.tutor import Tutor
 
 
 def render_chat_tab(llm_client, schema_sql):
-    st.subheader("自由答疑")
+    from ui.styles import hero
+    history = st.session_state.get("chat_history", [])
+    asked = len([m for m in history if m.get("role") == "user"])
+    hero(
+        "自由答疑",
+        "对当前数据库 schema 提问，多轮对话，AI 助教随时在线。",
+        stats=[{"value": str(asked), "label": "已提问"}] if asked else None,
+    )
+
     if not llm_client:
         st.info("请先在侧边栏设置 API Key。")
         return

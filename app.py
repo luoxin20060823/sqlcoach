@@ -12,6 +12,7 @@ from ui.browser import render_browser_tab
 from ui.review import render_review_tab
 from ui.chat import render_chat_tab
 from ui.exam import render_exam_tab
+from ui.styles import inject_global_styles, sidebar_logo, progress_card, hero
 from config import (
     DOMAINS, QUESTION_TYPES,
     load_api_key, save_api_key, clear_api_key,
@@ -66,18 +67,19 @@ def init_session_state():
 
 def sidebar():
     with st.sidebar:
-        st.title("SQL随身教练")
+        sidebar_logo()
 
         # 学习进度
         st.markdown("### 学习进度")
         stats = st.session_state.get("stats", {})
+        total = stats.get("total", 0)
+        correct = stats.get("correct", 0)
+        accuracy = stats.get("accuracy", 0)
+        progress_card("总题数", total, max(total, 1), "")
+        progress_card("正确数", correct, max(total, 1), f" / {total}")
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("总题", stats.get("total", 0))
-        with c2:
-            st.metric("正确", stats.get("correct", 0))
-        with c3:
-            st.metric("正确率", f"{stats.get('accuracy', 0):.0%}")
+            st.metric("正确率", f"{accuracy:.0%}")
 
         st.divider()
 
@@ -231,12 +233,25 @@ def sidebar():
                 "题库复用（同条件先抽老题）",
                 value=settings.get("reuse_question_bank", True),
             )
+
+            st.markdown("---")
+            st.markdown("**外观主题**")
+            theme_choice = st.radio(
+                "主题",
+                options=["default", "classic"],
+                format_func=lambda x: "默认（美化版）" if x == "default" else "经典（原生 Streamlit）",
+                index=0 if settings.get("theme_version", "default") == "default" else 1,
+                horizontal=True,
+            )
+            settings["theme_version"] = theme_choice
+
             if st.button("保存设置", use_container_width=True):
                 save_settings(settings)
                 st.session_state["settings"] = settings
                 if st.session_state["api_key"]:
                     st.session_state["llm_client"] = LLMClient(api_key=st.session_state["api_key"])
-                st.success("已保存。")
+                st.success("已保存。如未生效，请刷新页面。")
+                st.rerun()
 
 
 def _load_schema_into_state(sql: str):
@@ -437,6 +452,7 @@ def _generate_question():
 
 def main():
     init_session_state()
+    inject_global_styles()
 
     if st.session_state.get("trigger_new_question"):
         st.session_state["trigger_new_question"] = False

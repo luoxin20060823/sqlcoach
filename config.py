@@ -26,6 +26,8 @@ DEFAULT_SETTINGS = {
     "max_tokens_schema": 3072,
     # API 请求超时（秒）
     "request_timeout": 30,
+    # UI 主题：default / classic（一键回滚到原生 UI）
+    "theme_version": "default",
 }
 
 # 数据库路径

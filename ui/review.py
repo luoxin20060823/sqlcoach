@@ -7,8 +7,16 @@ from ui.sql_editor import sql_editor
 
 
 def render_review_tab(llm_client, store):
-    st.subheader("错题复习")
+    from ui.styles import hero
     wrong = store.get_wrong_questions(limit=100)
+    hero(
+        "错题复习",
+        "针对错题或放弃的题反复练习，巩固薄弱点。",
+        stats=[
+            {"value": str(len(wrong)), "label": "待复习"},
+        ] if wrong else None,
+    )
+
     if not wrong:
         st.info("还没有错题或放弃记录。继续做题吧。")
         return

@@ -7,20 +7,22 @@ from config import KNOWLEDGE_POINTS
 
 
 def render_report_tab(llm_client, store):
-    st.subheader("学习分析报告")
+    from ui.styles import hero
 
     stats = store.get_stats()
+    hero(
+        "学习分析报告",
+        "可视化你的学习进度、能力分布和趋势变化。",
+        stats=[
+            {"value": str(stats.get("total", 0)), "label": "总答题数"},
+            {"value": str(stats.get("correct", 0)), "label": "正确数"},
+            {"value": f"{stats.get('accuracy', 0):.0%}", "label": "正确率"},
+        ],
+    )
+
     if stats["total"] == 0:
         st.info("还没有答题记录，先去练习吧。")
         return
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("总答题数", stats["total"])
-    with c2:
-        st.metric("正确数", stats["correct"])
-    with c3:
-        st.metric("正确率", f"{stats['accuracy']:.0%}")
 
     history = store.get_user_history(limit=200)
     first_attempts = store.get_first_attempts(limit=200)

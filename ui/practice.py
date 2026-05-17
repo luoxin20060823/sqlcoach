@@ -9,7 +9,18 @@ from ui.sql_editor import sql_editor
 
 
 def render_practice_tab(llm_client, store, full_schema_sql, schema_display, current_question):
-    st.subheader("SQL 练习")
+    from ui.styles import hero
+    stats = st.session_state.get("stats", {})
+    domain = st.session_state.get("current_domain", "未选择")
+    hero(
+        "SQL 练习",
+        "AI 出题、即时判题、错题解析，一站式 SQL 训练。",
+        stats=[
+            {"value": str(stats.get("total", 0)), "label": "已答题数"},
+            {"value": f"{stats.get('accuracy', 0):.0%}", "label": "正确率"},
+            {"value": domain, "label": "当前领域"},
+        ],
+    )
 
     if not full_schema_sql:
         st.info("请先在侧边栏选择领域并点击「生成数据库」，再点击「生成题目」。")

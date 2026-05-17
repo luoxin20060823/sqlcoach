@@ -33,7 +33,25 @@ DIFFICULTY_SEQUENCE = ["easy", "medium", "hard"]
 
 
 def render_exam_tab(llm_client, store):
-    st.subheader("考试模式")
+    from ui.styles import hero
+    runs = store.get_challenge_runs(limit=5)
+    best_score = 0
+    if runs:
+        # 历史最高分（用 correct_count / question_count * 100 估算，仅用于展示）
+        for r in runs:
+            qc = r.get("question_count", 0) or 0
+            cc = r.get("correct_count", 0) or 0
+            ts = r.get("total_score", 0) or 0
+            this_score = ts if ts else (int(cc / qc * 100) if qc else 0)
+            best_score = max(best_score, this_score)
+    hero(
+        "考试模式",
+        "限时考试，难度均分，按权重计分，提交后自动判卷与复盘。",
+        stats=[
+            {"value": str(len(runs)), "label": "考试次数"},
+            {"value": str(best_score) if best_score else "—", "label": "历史最高"},
+        ] if runs else None,
+    )
 
     state = st.session_state.setdefault("exam", {})
     phase = state.get("phase", "setup")  # setup → running → finished
