@@ -256,6 +256,18 @@ def sidebar():
                 st.success("已保存。如未生效，请刷新页面。")
                 st.rerun()
 
+        # 部署版本水印（定位部署是否生效用）
+        st.divider()
+        try:
+            import os as _os
+            vpath = _os.path.join(_os.path.dirname(__file__), "VERSION")
+            if _os.path.exists(vpath):
+                with open(vpath, "r", encoding="utf-8") as _f:
+                    _ver = _f.read().strip()
+                st.caption(f"build: {_ver}")
+        except Exception:
+            pass
+
 
 def _load_schema_into_state(sql: str):
     st.session_state["current_schema_sql"] = sql
