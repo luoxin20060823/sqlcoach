@@ -2,7 +2,6 @@
 from datetime import datetime
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import streamlit as st
 from config import KNOWLEDGE_POINTS
 
@@ -73,21 +72,6 @@ def render_report_tab(llm_client, store):
         if analysis:
             _render_analysis(analysis)
             _render_export(stats, first_attempts, dim_stats, analysis)
-
-    # 错误分布
-    st.markdown("### 错误类型分布")
-    error_data = _count_error_types(history)
-    if error_data:
-        fig2 = px.pie(
-            names=list(error_data.keys()),
-            values=list(error_data.values()),
-            title="",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-        )
-        fig2.update_layout(height=350, margin=dict(t=20, b=0, l=0, r=0))
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.caption("暂无可统计的错误数据。")
 
 
 # ----------------- 趋势图 -----------------
@@ -276,16 +260,3 @@ def _build_radar_chart(dim_stats: dict) -> go.Figure:
         margin=dict(t=40, b=20, l=20, r=20),
     )
     return fig
-
-
-def _count_error_types(history: list) -> dict:
-    counts = {}
-    label_map = {
-        "syntax": "语法错误", "join_logic": "JOIN错误", "aggregation": "聚合错误",
-        "subquery": "子查询错误", "where_condition": "WHERE错误", "window_function": "窗口函数错误",
-    }
-    for h in history:
-        et = h.get("error_type") or ""
-        if et and et != "equivalent":
-            counts[label_map.get(et, et)] = counts.get(label_map.get(et, et), 0) + 1
-    return counts
