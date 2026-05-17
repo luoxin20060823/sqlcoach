@@ -50,6 +50,8 @@ def init_session_state():
         "chat_history": [],
         "custom_domain": "",
         "custom_description": "",
+        "custom_db_name": "",
+        "custom_db_sql": "",
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -81,25 +83,44 @@ def sidebar():
 
         # 学习设置
         st.markdown("### 学习设置")
-        domain_choices = list(DOMAINS) + ["自定义领域名...", "用一句话描述生成..."]
+        domain_choices = list(DOMAINS) + ["自定义数据库...", "用一句话描述生成..."]
         cur_domain = st.session_state["current_domain"]
         if cur_domain in domain_choices:
             idx = domain_choices.index(cur_domain)
         else:
-            # 派生别名（一句话生成出来的领域）→ 默认停留在描述生成 Tab
+            # 派生别名（自定义生成出来的领域）→ 默认停留在描述生成 Tab
             idx = len(domain_choices) - 1
         domain_pick = st.selectbox("知识领域", domain_choices, index=idx)
 
-        if domain_pick == "自定义领域名...":
-            custom = st.text_input(
-                "领域名",
-                value=st.session_state.get("custom_domain", ""),
-                placeholder="如：医院挂号系统",
+        if domain_pick == "自定义数据库...":
+            generated_alias = st.session_state.get("current_domain")
+            if generated_alias and generated_alias not in DOMAINS:
+                st.caption(f"当前已加载：{generated_alias}")
+            custom_name = st.text_input(
+                "数据库名（用于关联题库）",
+                value=st.session_state.get("custom_db_name", ""),
+                placeholder="如：我的学籍系统",
             )
-            st.session_state["custom_domain"] = custom
-            st.session_state["current_domain"] = custom or DOMAINS[0]
+            st.session_state["custom_db_name"] = custom_name
+            custom_sql = st.text_area(
+                "粘贴建库 SQL（CREATE TABLE 与 INSERT INTO，SQLite 方言）",
+                value=st.session_state.get("custom_db_sql", ""),
+                placeholder=(
+                    "CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT);\n"
+                    "INSERT INTO students VALUES (1, '张三');\n"
+                    "INSERT INTO students VALUES (2, '李四');"
+                ),
+                height=180,
+            )
+            st.session_state["custom_db_sql"] = custom_sql
+            if st.button(
+                "加载自定义数据库",
+                type="primary",
+                use_container_width=True,
+                disabled=not bool(custom_sql.strip() and custom_name.strip()),
+            ):
+                _load_custom_database(custom_name.strip(), custom_sql.strip())
         elif domain_pick == "用一句话描述生成...":
-            # 显示当前已生成的派生领域名（如果有）
             generated_alias = st.session_state.get("current_domain")
             if generated_alias and generated_alias not in DOMAINS:
                 st.caption(f"当前已加载：{generated_alias}")
@@ -114,7 +135,6 @@ def sidebar():
                          use_container_width=True,
                          disabled=not bool(desc.strip())):
                 _generate_schema_from_description(desc.strip())
-            # 不覆盖 current_domain — 让派生别名继续生效
         else:
             st.session_state["current_domain"] = domain_pick
 
@@ -308,6 +328,40 @@ def _generate_schema_from_description(description: str):
     st.session_state["current_domain"] = alias
     st.session_state["custom_domain"] = alias
     st.success(f"已生成数据库（领域名：{alias}）。")
+    st.rerun()
+
+
+def _load_custom_database(db_name: str, sql_text: str):
+    """加载用户粘贴的建库 SQL：先在内存执行校验，再写入缓存并加载到 state。"""
+    # 校验：必须能在 SQLite 内存执行
+    try:
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(sql_text)
+        # 至少要建出一张表
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+        conn.close()
+        if not tables:
+            st.error("SQL 中未发现任何 CREATE TABLE 语句。")
+            return
+    except sqlite3.Error as e:
+        st.error(f"SQL 执行失败：{e}")
+        return
+    except Exception as e:
+        st.error(f"SQL 校验失败：{e}")
+        return
+
+    # 写入缓存（数据库名作为领域 key），加载到 session
+    store = st.session_state["store"]
+    try:
+        store.cache_schema(db_name, sql_text)
+    except Exception:
+        pass
+    _load_schema_into_state(sql_text)
+    st.session_state["current_domain"] = db_name
+    st.session_state["custom_db_name"] = db_name
+    st.success(f"已加载自定义数据库：{db_name}")
     st.rerun()
 
 
