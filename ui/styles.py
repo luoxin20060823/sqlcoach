@@ -321,22 +321,20 @@ def hero(title: str, subtitle: str = "", stats: list = None):
         items = []
         for s in stats:
             items.append(
-                f"""<div class="hero-stat">
-                    <div class="hero-stat-value">{s.get('value', '')}</div>
-                    <div class="hero-stat-label">{s.get('label', '')}</div>
-                </div>"""
+                f'<div class="hero-stat"><div class="hero-stat-value">{s.get("value", "")}</div>'
+                f'<div class="hero-stat-label">{s.get("label", "")}</div></div>'
             )
         stats_html = f'<div class="hero-stats">{"".join(items)}</div>'
 
     sub_html = f'<p>{subtitle}</p>' if subtitle else ""
-    st.markdown(
-        f"""<div class="hero-banner">
-            <h2>{title}</h2>
-            {sub_html}
-            {stats_html}
-        </div>""",
-        unsafe_allow_html=True,
+    html = (
+        f'<div class="hero-banner">'
+        f'<h2>{title}</h2>'
+        f'{sub_html}'
+        f'{stats_html}'
+        f'</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # ----------------- 侧边栏 logo（方案 B） -----------------
@@ -352,13 +350,13 @@ def sidebar_logo():
         return
 
     st.markdown(
-        """<div class="sidebar-logo">
-            <div class="sidebar-logo-icon">SQL</div>
-            <div class="sidebar-logo-text">
-                <div class="sidebar-logo-title">SQL 随身教练</div>
-                <div class="sidebar-logo-sub">大模型驱动的学习系统</div>
-            </div>
-        </div>""",
+        '<div class="sidebar-logo">'
+        '<div class="sidebar-logo-icon">SQL</div>'
+        '<div class="sidebar-logo-text">'
+        '<div class="sidebar-logo-title">SQL 随身教练</div>'
+        '<div class="sidebar-logo-sub">大模型驱动的学习系统</div>'
+        '</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -377,14 +375,10 @@ def progress_card(label: str, current: int, total: int, suffix: str = ""):
 
     pct = (current / total * 100) if total > 0 else 0
     st.markdown(
-        f"""<div class="progress-card">
-            <div class="progress-card-header">
-                <span>{label}</span>
-                <span><strong>{current}</strong>{suffix}</span>
-            </div>
-            <div class="progress-card-bar">
-                <div class="progress-card-fill" style="width: {pct}%"></div>
-            </div>
-        </div>""",
+        '<div class="progress-card">'
+        f'<div class="progress-card-header"><span>{label}</span>'
+        f'<span><strong>{current}</strong>{suffix}</span></div>'
+        f'<div class="progress-card-bar"><div class="progress-card-fill" style="width: {pct}%"></div></div>'
+        '</div>',
         unsafe_allow_html=True,
     )

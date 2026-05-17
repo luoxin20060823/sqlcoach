@@ -34,10 +34,9 @@ DIFFICULTY_SEQUENCE = ["easy", "medium", "hard"]
 
 def render_exam_tab(llm_client, store):
     from ui.styles import hero
-    runs = store.get_challenge_runs(limit=5)
+    runs = store.get_challenge_runs(limit=200)
     best_score = 0
     if runs:
-        # 历史最高分（用 correct_count / question_count * 100 估算，仅用于展示）
         for r in runs:
             qc = r.get("question_count", 0) or 0
             cc = r.get("correct_count", 0) or 0
@@ -49,7 +48,7 @@ def render_exam_tab(llm_client, store):
         "限时考试，难度均分，按权重计分，提交后自动判卷与复盘。",
         stats=[
             {"value": str(len(runs)), "label": "考试次数"},
-            {"value": str(best_score) if best_score else "—", "label": "历史最高"},
+            {"value": (f"{best_score} 分") if best_score else "—", "label": "历史最高"},
         ] if runs else None,
     )
 
@@ -71,20 +70,21 @@ def _render_setup(llm_client, store):
         "答题过程可来回切换题目，最后一题处提交，超时自动交卷。"
     )
 
-    # 历史考试记录
-    runs = store.get_challenge_runs(limit=5)
-    if runs:
-        df = pd.DataFrame(runs)
-        df["分数"] = df.apply(lambda r: f"{r['correct_count']}/{r['question_count']}", axis=1)
-        df["用时"] = df["duration_seconds"].apply(_fmt_duration)
-        st.markdown("**最近 5 次考试**")
+    # 历史成绩
+    all_runs = store.get_challenge_runs(limit=200)
+    if all_runs:
+        st.markdown("### 历史成绩")
+        recent = all_runs[:5]
         st.dataframe(
-            df[["schema_name", "difficulty", "分数", "用时", "finished_at"]]
-              .rename(columns={
-                  "schema_name": "领域", "difficulty": "难度", "finished_at": "时间",
-              }),
+            _build_runs_dataframe(recent),
             use_container_width=True, hide_index=True,
         )
+        if len(all_runs) > 5:
+            with st.expander(f"查看更多历史（共 {len(all_runs)} 次）", expanded=False):
+                st.dataframe(
+                    _build_runs_dataframe(all_runs),
+                    use_container_width=True, hide_index=True,
+                )
 
     st.markdown("---")
     st.markdown("### 配置考试")
@@ -97,6 +97,26 @@ def _render_setup(llm_client, store):
             "题数", min_value=3, max_value=30, value=6, step=1,
             help="建议为 3 的倍数，便于难度均分；非 3 的倍数也可，会按 easy/medium/hard 顺序补齐",
         )
+
+
+def _build_runs_dataframe(runs: list) -> pd.DataFrame:
+    """统一历史成绩表格：分数百分制，列清晰。"""
+    rows = []
+    for r in runs:
+        qc = r.get("question_count", 0) or 0
+        cc = r.get("correct_count", 0) or 0
+        ts = r.get("total_score", 0) or 0
+        # 优先使用 total_score（已是 100 分制）；旧记录回退到正确率折算
+        score_100 = ts if ts > 0 else (round(cc / qc * 100) if qc else 0)
+        rows.append({
+            "领域": r.get("schema_name", ""),
+            "题数": qc,
+            "正确": f"{cc}/{qc}",
+            "分数": f"{score_100} 分",
+            "用时": _fmt_duration(r.get("duration_seconds", 0) or 0),
+            "时间": r.get("finished_at", ""),
+        })
+    return pd.DataFrame(rows)
 
     col3, col4 = st.columns(2)
     with col3:
@@ -344,13 +364,14 @@ def _finalize_exam(store):
         })
 
     duration = int(time.time() - state["started_at"])
-    # 记录到 challenge_runs（沿用旧表）
-    store.save_challenge_run(
+    # 记录到 challenge_runs（用 save_exam_run 以保留 total_score / time_limit_seconds）
+    store.save_exam_run(
         schema_name=state["schema_name"],
-        difficulty="exam",
         question_count=len(state["questions"]),
         correct_count=correct_cnt,
+        total_score=int(round(total_score)),
         duration_seconds=duration,
+        time_limit_seconds=int(state.get("time_limit_sec", 0)),
     )
 
     state["phase"] = "finished"
