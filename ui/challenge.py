@@ -270,7 +270,7 @@ def _render_finished(llm_client, store):
     with review_header_col2:
         all_done = all(r.get("explanation") for r in state["results"])
         if not all_done and llm_client:
-            if st.button("一键生成全部 AI 解析",
+            if st.button("一键生成全部解析",
                          use_container_width=True,
                          help="并发请求 LLM，约 5~15 秒"):
                 _explain_all(llm_client, state)
@@ -291,13 +291,13 @@ def _render_finished(llm_client, store):
             st.markdown("**标准答案**:")
             st.code(q["answer_sql"], language="sql")
 
-            # AI 详细解析
+            # 详细解析
             explanation = r.get("explanation")
             if explanation:
-                st.markdown("**AI 详细解析**")
+                st.markdown("**详细解析**")
                 st.markdown(explanation)
             elif llm_client:
-                if st.button("生成 AI 详细解析", key=f"ch_explain_{i}"):
+                if st.button("生成详细解析", key=f"ch_explain_{i}"):
                     _explain_one(llm_client, state, i - 1)
 
     st.markdown("---")

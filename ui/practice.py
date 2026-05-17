@@ -33,11 +33,6 @@ def render_practice_tab(llm_client, store, full_schema_sql, schema_display, curr
 
     _display_verdict()
 
-    finished = st.session_state.get("question_finished", False)
-    gave_up = st.session_state.get("show_answer", False)
-    if finished or gave_up:
-        _render_post_answer_actions()
-
     _render_sql_editor(llm_client, store, full_schema_sql, current_q)
 
 
@@ -48,7 +43,7 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
     user_sql = sql_editor(value=last_sql, key="sql_input", height=200,
                           placeholder="例如: SELECT * FROM students WHERE age > 18")
 
-    col1, col2, col3, col4, col5 = st.columns([0.8, 0.8, 0.8, 1.0, 2.0])
+    col1, col2, col3, col4, col5 = st.columns([0.9, 0.9, 0.9, 1.0, 1.0])
     with col1:
         run_btn = st.button("运行", use_container_width=True)
     with col2:
@@ -68,6 +63,9 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
         showing_answer = bool(st.session_state.get("show_answer"))
         toggle_label = "隐藏答案" if showing_answer else "查看答案"
         toggle_answer_btn = st.button(toggle_label, use_container_width=True)
+    with col5:
+        next_btn = st.button("下一题", use_container_width=True,
+                              help="跳过当前题；如果未提交，不计入总题数")
 
     _display_hints()
 
@@ -89,6 +87,9 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
             _hide_answer()
         else:
             _handle_show_answer(store, current_q)
+
+    if next_btn:
+        _handle_next_question()
 
 
 def _handle_run_sql(full_schema_sql, user_sql):
@@ -333,21 +334,23 @@ def _hide_answer():
     st.rerun()
 
 
-def _render_post_answer_actions():
-    st.markdown("---")
-    if st.button("下一题", type="primary", use_container_width=False):
-        for key in [
-            "last_result", "last_explanation", "last_explanation_error",
-            "show_answer", "question_finished", "last_user_sql",
-            "last_question", "last_optimization",
-            "run_result_columns", "run_result_rows", "run_error",
-            "has_run_sql", "_skipped_recorded",
-        ]:
-            st.session_state.pop(key, None)
-        st.session_state["hint_level"] = 0
-        st.session_state["hints"] = []
-        st.session_state["trigger_new_question"] = True
-        st.rerun()
+def _handle_next_question():
+    """下一题按钮逻辑：
+    - 已经提交过（question_finished=True）→ 正常切下一题
+    - 还没提交（跳过）→ 不写任何历史记录，不计入总题数
+    """
+    for key in [
+        "last_result", "last_explanation", "last_explanation_error",
+        "show_answer", "question_finished", "last_user_sql",
+        "last_question", "last_optimization",
+        "run_result_columns", "run_result_rows", "run_error",
+        "has_run_sql", "_skipped_recorded",
+    ]:
+        st.session_state.pop(key, None)
+    st.session_state["hint_level"] = 0
+    st.session_state["hints"] = []
+    st.session_state["trigger_new_question"] = True
+    st.rerun()
 
 
 def _display_hints():

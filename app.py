@@ -49,6 +49,7 @@ def init_session_state():
         "review_question_id": None,
         "chat_history": [],
         "custom_domain": "",
+        "custom_description": "",
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -80,14 +81,40 @@ def sidebar():
 
         # 学习设置
         st.markdown("### 学习设置")
-        domain_choices = list(DOMAINS) + ["自定义领域..."]
+        domain_choices = list(DOMAINS) + ["自定义领域名...", "用一句话描述生成..."]
         cur_domain = st.session_state["current_domain"]
-        idx = domain_choices.index(cur_domain) if cur_domain in domain_choices else 0
+        if cur_domain in domain_choices:
+            idx = domain_choices.index(cur_domain)
+        else:
+            # 派生别名（一句话生成出来的领域）→ 默认停留在描述生成 Tab
+            idx = len(domain_choices) - 1
         domain_pick = st.selectbox("知识领域", domain_choices, index=idx)
-        if domain_pick == "自定义领域...":
-            custom = st.text_input("输入自定义领域", value=st.session_state.get("custom_domain", ""))
+
+        if domain_pick == "自定义领域名...":
+            custom = st.text_input(
+                "领域名",
+                value=st.session_state.get("custom_domain", ""),
+                placeholder="如：医院挂号系统",
+            )
             st.session_state["custom_domain"] = custom
             st.session_state["current_domain"] = custom or DOMAINS[0]
+        elif domain_pick == "用一句话描述生成...":
+            # 显示当前已生成的派生领域名（如果有）
+            generated_alias = st.session_state.get("current_domain")
+            if generated_alias and generated_alias not in DOMAINS:
+                st.caption(f"当前已加载：{generated_alias}")
+            desc = st.text_area(
+                "用一句话描述你想要的数据库",
+                value=st.session_state.get("custom_description", ""),
+                placeholder="如：一个简易的健身房系统，需要会员、教练、课程、预约课等表",
+                height=80,
+            )
+            st.session_state["custom_description"] = desc
+            if st.button("从描述生成数据库", type="primary",
+                         use_container_width=True,
+                         disabled=not bool(desc.strip())):
+                _generate_schema_from_description(desc.strip())
+            # 不覆盖 current_domain — 让派生别名继续生效
         else:
             st.session_state["current_domain"] = domain_pick
 
@@ -258,6 +285,29 @@ def _generate_schema(force_llm: bool = False):
         return
     _load_schema_into_state(sql)
     st.success(f"'{domain}' 数据库已生成。")
+    st.rerun()
+
+
+def _generate_schema_from_description(description: str):
+    """根据用户一句话描述调 LLM 生成数据库，并把派生的领域名注入 session。"""
+    llm = st.session_state.get("llm_client")
+    store = st.session_state["store"]
+    if not llm:
+        st.error("此功能需要调 LLM 生成，请先设置 API Key。")
+        return
+
+    gen = SchemaGenerator(llm=llm, store=store)
+    with st.spinner("正在根据描述生成数据库..."):
+        sql, alias = gen.generate_from_description(description)
+    if not sql:
+        st.error("生成失败，请检查 API Key 或重试。")
+        return
+
+    _load_schema_into_state(sql)
+    # 派生领域名设为当前 domain，后续生成题目会以此关联
+    st.session_state["current_domain"] = alias
+    st.session_state["custom_domain"] = alias
+    st.success(f"已生成数据库（领域名：{alias}）。")
     st.rerun()
 
 

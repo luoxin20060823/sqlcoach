@@ -6,7 +6,10 @@
 """
 from agent.llm import LLMClient
 from agent.preset_schemas import get_preset
-from prompts.templates import SCHEMA_GEN_SYSTEM, SCHEMA_GEN_USER
+from prompts.templates import (
+    SCHEMA_GEN_SYSTEM, SCHEMA_GEN_USER,
+    SCHEMA_FROM_DESC_SYSTEM, SCHEMA_FROM_DESC_USER,
+)
 from config import load_settings
 
 
@@ -64,6 +67,42 @@ class SchemaGenerator:
             except Exception:
                 pass
         return sql
+
+    def generate_from_description(self, description: str,
+                                  store_alias: str = "") -> tuple:
+        """根据一句话业务描述调 LLM 生成数据库。
+
+        参数：
+            description: 用户给的一句话业务描述
+            store_alias: 存到 schema_cache 时使用的领域别名（默认从描述派生）
+        返回 (sql, alias)：sql 为生成的 SQL，alias 为可读的领域名（已写入缓存）
+        """
+        if self.llm is None:
+            return "", ""
+        max_tokens = int(self._settings.get("max_tokens_schema", 3072))
+        sql = self.llm.chat(
+            system_prompt=SCHEMA_FROM_DESC_SYSTEM,
+            user_message=SCHEMA_FROM_DESC_USER.format(description=description.strip()),
+            temperature=0.3,
+            max_tokens=max_tokens,
+        ).strip()
+
+        # 去掉 markdown 包裹
+        if sql.startswith("```"):
+            lines = sql.split("\n")
+            sql = "\n".join(l for l in lines if not l.strip().startswith("```"))
+        sql = sql.strip()
+
+        # 派生别名（截取描述前 20 字符避免太长）
+        alias = (store_alias or description.strip()[:20] or "自定义数据库")
+
+        # 写入缓存（如果同名已存在则覆盖）
+        if self.store is not None and sql:
+            try:
+                self.store.cache_schema(alias, sql)
+            except Exception:
+                pass
+        return sql, alias
 
     def parse_schema(self, sql_text: str) -> dict:
         """解析生成的 SQL，提取 Schema 信息为字典"""

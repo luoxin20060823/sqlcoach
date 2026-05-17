@@ -327,6 +327,355 @@ INSERT INTO attendances VALUES (6, 1006, '2024-11-01', 'leave');
 INSERT INTO attendances VALUES (7, 1007, '2024-11-01', 'present');
 INSERT INTO attendances VALUES (8, 1010, '2024-11-01', 'late');
 """.strip(),
+
+    "医院挂号系统": """
+-- 医院挂号系统：科室、医生、病人、挂号记录
+CREATE TABLE departments (
+    dept_id INTEGER PRIMARY KEY,
+    dept_name TEXT NOT NULL,
+    location TEXT
+);
+
+CREATE TABLE doctors (
+    doctor_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    title TEXT,        -- 主任 / 副主任 / 主治 / 住院
+    dept_id INTEGER,
+    consult_fee REAL,
+    FOREIGN KEY (dept_id) REFERENCES departments(dept_id)
+);
+
+CREATE TABLE patients (
+    patient_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    gender TEXT,
+    age INTEGER,
+    phone TEXT
+);
+
+CREATE TABLE appointments (
+    appointment_id INTEGER PRIMARY KEY,
+    patient_id INTEGER,
+    doctor_id INTEGER,
+    appoint_date TEXT,
+    status TEXT,         -- booked / done / cancelled / no_show
+    fee_paid REAL,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id),
+    FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id)
+);
+
+INSERT INTO departments VALUES (1, '内科',   '门诊楼 2 层');
+INSERT INTO departments VALUES (2, '外科',   '门诊楼 3 层');
+INSERT INTO departments VALUES (3, '儿科',   '门诊楼 1 层');
+INSERT INTO departments VALUES (4, '皮肤科', '门诊楼 4 层');
+INSERT INTO departments VALUES (5, '中医科', '门诊楼 5 层');
+
+INSERT INTO doctors VALUES (1, '林主任', '主任',   1, 100);
+INSERT INTO doctors VALUES (2, '王副主任','副主任',1, 60);
+INSERT INTO doctors VALUES (3, '张医生', '主治',   1, 30);
+INSERT INTO doctors VALUES (4, '陈主任', '主任',   2, 100);
+INSERT INTO doctors VALUES (5, '刘医生', '主治',   2, 30);
+INSERT INTO doctors VALUES (6, '赵医生', '住院',   3, 20);
+INSERT INTO doctors VALUES (7, '钱主任', '主任',   3, 100);
+INSERT INTO doctors VALUES (8, '孙副主任','副主任',4, 60);
+INSERT INTO doctors VALUES (9, '李医生', '主治',   5, 40);
+INSERT INTO doctors VALUES (10,'周医生', '住院',   5, NULL);
+
+INSERT INTO patients VALUES (1, '老王', '男', 55, '139xxxx0001');
+INSERT INTO patients VALUES (2, '小李', '女', 28, '139xxxx0002');
+INSERT INTO patients VALUES (3, '小红', '女',  6, '139xxxx0003');
+INSERT INTO patients VALUES (4, '老张', '男', 70, '139xxxx0004');
+INSERT INTO patients VALUES (5, '小明', '男', 32, '139xxxx0005');
+INSERT INTO patients VALUES (6, '小芳', '女', 41, NULL);
+
+INSERT INTO appointments VALUES (1, 1, 1, '2024-11-01', 'done',      100);
+INSERT INTO appointments VALUES (2, 1, 3, '2024-11-15', 'done',      30);
+INSERT INTO appointments VALUES (3, 2, 4, '2024-11-02', 'done',      100);
+INSERT INTO appointments VALUES (4, 2, 8, '2024-11-20', 'cancelled', 0);
+INSERT INTO appointments VALUES (5, 3, 7, '2024-11-03', 'done',      100);
+INSERT INTO appointments VALUES (6, 3, 6, '2024-11-25', 'booked',    20);
+INSERT INTO appointments VALUES (7, 4, 1, '2024-11-04', 'done',      100);
+INSERT INTO appointments VALUES (8, 4, 9, '2024-11-12', 'no_show',   0);
+INSERT INTO appointments VALUES (9, 5, 2, '2024-11-05', 'done',      60);
+INSERT INTO appointments VALUES (10, 5, 5, '2024-11-22', 'booked',   30);
+INSERT INTO appointments VALUES (11, 6, 8, '2024-11-08', 'done',     60);
+INSERT INTO appointments VALUES (12, 6, 1, '2024-11-30', 'booked',   100);
+""".strip(),
+
+    "银行交易系统": """
+-- 银行交易系统：客户、账户、交易、网点
+CREATE TABLE branches (
+    branch_id INTEGER PRIMARY KEY,
+    branch_name TEXT NOT NULL,
+    city TEXT
+);
+
+CREATE TABLE customers (
+    customer_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    age INTEGER,
+    register_branch INTEGER,
+    FOREIGN KEY (register_branch) REFERENCES branches(branch_id)
+);
+
+CREATE TABLE accounts (
+    account_id INTEGER PRIMARY KEY,
+    customer_id INTEGER,
+    account_type TEXT,    -- saving / checking / credit
+    balance REAL,
+    open_date TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+CREATE TABLE transactions (
+    txn_id INTEGER PRIMARY KEY,
+    account_id INTEGER,
+    txn_type TEXT,        -- deposit / withdraw / transfer / consume
+    amount REAL,
+    txn_time TEXT,
+    counterpart TEXT,     -- 对手账户/商户名（可空）
+    FOREIGN KEY (account_id) REFERENCES accounts(account_id)
+);
+
+INSERT INTO branches VALUES (1, '北京中关村支行', '北京');
+INSERT INTO branches VALUES (2, '北京国贸支行',   '北京');
+INSERT INTO branches VALUES (3, '上海浦东支行',   '上海');
+INSERT INTO branches VALUES (4, '深圳南山支行',   '深圳');
+
+INSERT INTO customers VALUES (1, '张三', 35, 1);
+INSERT INTO customers VALUES (2, '李四', 28, 1);
+INSERT INTO customers VALUES (3, '王五', 50, 2);
+INSERT INTO customers VALUES (4, '赵六', 24, 3);
+INSERT INTO customers VALUES (5, '钱七', 45, 3);
+INSERT INTO customers VALUES (6, '孙八', NULL, 4);
+INSERT INTO customers VALUES (7, '周九', 32, 4);
+
+INSERT INTO accounts VALUES (1001, 1, 'saving',   25800,   '2020-03-15');
+INSERT INTO accounts VALUES (1002, 1, 'credit',   -3200,   '2022-01-10');
+INSERT INTO accounts VALUES (1003, 2, 'saving',   12500,   '2021-08-20');
+INSERT INTO accounts VALUES (1004, 3, 'saving',   189000,  '2018-05-01');
+INSERT INTO accounts VALUES (1005, 3, 'checking', 7500,    '2019-09-10');
+INSERT INTO accounts VALUES (1006, 4, 'saving',   3800,    '2024-02-15');
+INSERT INTO accounts VALUES (1007, 5, 'saving',   65000,   '2017-11-01');
+INSERT INTO accounts VALUES (1008, 5, 'credit',   -8800,   '2021-04-12');
+INSERT INTO accounts VALUES (1009, 6, 'saving',   42000,   '2020-07-20');
+INSERT INTO accounts VALUES (1010, 7, 'checking', 15600,   '2023-01-05');
+
+INSERT INTO transactions VALUES (1, 1001, 'deposit',  3000, '2024-10-01 09:30', NULL);
+INSERT INTO transactions VALUES (2, 1001, 'withdraw', 800,  '2024-10-05 14:00', NULL);
+INSERT INTO transactions VALUES (3, 1002, 'consume',  500,  '2024-10-08 12:15', '美团外卖');
+INSERT INTO transactions VALUES (4, 1002, 'consume',  2700, '2024-10-15 19:45', '京东商城');
+INSERT INTO transactions VALUES (5, 1003, 'transfer', 1500, '2024-10-10 10:00', '账户1004');
+INSERT INTO transactions VALUES (6, 1004, 'deposit',  20000,'2024-10-12 11:00', NULL);
+INSERT INTO transactions VALUES (7, 1004, 'transfer', 5000, '2024-10-20 16:30', '账户1007');
+INSERT INTO transactions VALUES (8, 1005, 'withdraw', 1200, '2024-10-22 15:00', NULL);
+INSERT INTO transactions VALUES (9, 1007, 'deposit',  5000, '2024-10-20 16:30', '账户1004转入');
+INSERT INTO transactions VALUES (10,1008, 'consume',  3500, '2024-10-25 21:00', '苹果旗舰店');
+INSERT INTO transactions VALUES (11,1009, 'withdraw', 8000, '2024-10-28 10:30', NULL);
+INSERT INTO transactions VALUES (12,1010, 'deposit',  6000, '2024-11-01 09:00', NULL);
+INSERT INTO transactions VALUES (13,1010, 'consume',  450,  '2024-11-05 18:30', '星巴克');
+INSERT INTO transactions VALUES (14,1003, 'consume',  280,  '2024-11-08 13:00', '盒马生鲜');
+""".strip(),
+
+    "餐厅外卖系统": """
+-- 餐厅外卖系统：餐厅、菜品、客户、订单、订单明细
+CREATE TABLE restaurants (
+    restaurant_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    cuisine TEXT,        -- 川菜 / 粤菜 / 西餐 / 日料
+    rating REAL,
+    city TEXT
+);
+
+CREATE TABLE dishes (
+    dish_id INTEGER PRIMARY KEY,
+    restaurant_id INTEGER,
+    dish_name TEXT NOT NULL,
+    price REAL,
+    is_signature INTEGER DEFAULT 0,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(restaurant_id)
+);
+
+CREATE TABLE customers (
+    customer_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    city TEXT
+);
+
+CREATE TABLE orders (
+    order_id INTEGER PRIMARY KEY,
+    customer_id INTEGER,
+    restaurant_id INTEGER,
+    order_time TEXT,
+    status TEXT,         -- delivered / cancelled / pending
+    delivery_fee REAL,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(restaurant_id)
+);
+
+CREATE TABLE order_items (
+    item_id INTEGER PRIMARY KEY,
+    order_id INTEGER,
+    dish_id INTEGER,
+    quantity INTEGER,
+    unit_price REAL,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (dish_id) REFERENCES dishes(dish_id)
+);
+
+INSERT INTO restaurants VALUES (1, '蜀香居',     '川菜', 4.6, '北京');
+INSERT INTO restaurants VALUES (2, '广粤楼',     '粤菜', 4.8, '北京');
+INSERT INTO restaurants VALUES (3, '寿司道',     '日料', 4.5, '上海');
+INSERT INTO restaurants VALUES (4, '帕斯塔咖啡', '西餐', 4.3, '上海');
+INSERT INTO restaurants VALUES (5, '麻辣烫小馆', '川菜', 4.0, '深圳');
+
+INSERT INTO dishes VALUES (101, 1, '麻婆豆腐',  28, 1);
+INSERT INTO dishes VALUES (102, 1, '宫保鸡丁',  38, 1);
+INSERT INTO dishes VALUES (103, 1, '米饭',       3, 0);
+INSERT INTO dishes VALUES (104, 2, '白切鸡',    68, 1);
+INSERT INTO dishes VALUES (105, 2, '虾饺',      36, 1);
+INSERT INTO dishes VALUES (106, 2, '叉烧',      48, 0);
+INSERT INTO dishes VALUES (107, 3, '三文鱼刺身',88, 1);
+INSERT INTO dishes VALUES (108, 3, '加州卷',    36, 0);
+INSERT INTO dishes VALUES (109, 4, '意大利肉酱面',58, 1);
+INSERT INTO dishes VALUES (110, 4, '凯撒沙拉',  42, 0);
+INSERT INTO dishes VALUES (111, 5, '香辣麻辣烫',32, 1);
+INSERT INTO dishes VALUES (112, 5, '酸梅汤',    8,  0);
+
+INSERT INTO customers VALUES (1, '小林', '北京');
+INSERT INTO customers VALUES (2, '小江', '北京');
+INSERT INTO customers VALUES (3, '小郑', '上海');
+INSERT INTO customers VALUES (4, '小冯', '上海');
+INSERT INTO customers VALUES (5, '小陈', '深圳');
+
+INSERT INTO orders VALUES (1, 1, 1, '2024-11-01 12:30', 'delivered', 4);
+INSERT INTO orders VALUES (2, 1, 2, '2024-11-05 19:00', 'delivered', 6);
+INSERT INTO orders VALUES (3, 2, 1, '2024-11-08 18:30', 'delivered', 4);
+INSERT INTO orders VALUES (4, 2, 2, '2024-11-15 12:00', 'cancelled', 0);
+INSERT INTO orders VALUES (5, 3, 3, '2024-11-02 19:30', 'delivered', 8);
+INSERT INTO orders VALUES (6, 3, 4, '2024-11-12 13:00', 'delivered', 5);
+INSERT INTO orders VALUES (7, 4, 4, '2024-11-09 20:00', 'delivered', 5);
+INSERT INTO orders VALUES (8, 5, 5, '2024-11-04 12:00', 'delivered', 3);
+INSERT INTO orders VALUES (9, 5, 5, '2024-11-18 21:30', 'delivered', 3);
+INSERT INTO orders VALUES (10,1, 1, '2024-11-25 19:30', 'pending',   4);
+
+INSERT INTO order_items VALUES (1, 1, 101, 1, 28);
+INSERT INTO order_items VALUES (2, 1, 102, 1, 38);
+INSERT INTO order_items VALUES (3, 1, 103, 2, 3);
+INSERT INTO order_items VALUES (4, 2, 104, 1, 68);
+INSERT INTO order_items VALUES (5, 2, 105, 2, 36);
+INSERT INTO order_items VALUES (6, 3, 102, 1, 38);
+INSERT INTO order_items VALUES (7, 4, 105, 1, 36);
+INSERT INTO order_items VALUES (8, 5, 107, 2, 88);
+INSERT INTO order_items VALUES (9, 5, 108, 1, 36);
+INSERT INTO order_items VALUES (10,6, 109, 1, 58);
+INSERT INTO order_items VALUES (11,6, 110, 1, 42);
+INSERT INTO order_items VALUES (12,7, 109, 2, 58);
+INSERT INTO order_items VALUES (13,8, 111, 1, 32);
+INSERT INTO order_items VALUES (14,8, 112, 2, 8);
+INSERT INTO order_items VALUES (15,9, 111, 2, 32);
+INSERT INTO order_items VALUES (16,10,101, 1, 28);
+INSERT INTO order_items VALUES (17,10,102, 1, 38);
+""".strip(),
+
+    "博客社交系统": """
+-- 博客社交系统：用户、文章、评论、点赞、关注
+CREATE TABLE users (
+    user_id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL,
+    register_date TEXT,
+    follower_count INTEGER DEFAULT 0
+);
+
+CREATE TABLE posts (
+    post_id INTEGER PRIMARY KEY,
+    author_id INTEGER,
+    title TEXT NOT NULL,
+    category TEXT,
+    publish_date TEXT,
+    view_count INTEGER DEFAULT 0,
+    FOREIGN KEY (author_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE comments (
+    comment_id INTEGER PRIMARY KEY,
+    post_id INTEGER,
+    user_id INTEGER,
+    content TEXT,
+    comment_time TEXT,
+    FOREIGN KEY (post_id) REFERENCES posts(post_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE likes (
+    like_id INTEGER PRIMARY KEY,
+    post_id INTEGER,
+    user_id INTEGER,
+    like_time TEXT,
+    FOREIGN KEY (post_id) REFERENCES posts(post_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE follows (
+    follower_id INTEGER,
+    followed_id INTEGER,
+    follow_date TEXT,
+    PRIMARY KEY (follower_id, followed_id),
+    FOREIGN KEY (follower_id) REFERENCES users(user_id),
+    FOREIGN KEY (followed_id) REFERENCES users(user_id)
+);
+
+INSERT INTO users VALUES (1, 'alice',  '2022-03-10', 1200);
+INSERT INTO users VALUES (2, 'bob',    '2022-06-20', 380);
+INSERT INTO users VALUES (3, 'carol',  '2023-01-05', 5800);
+INSERT INTO users VALUES (4, 'david',  '2023-04-15', 90);
+INSERT INTO users VALUES (5, 'eve',    '2023-09-01', 0);
+INSERT INTO users VALUES (6, 'frank',  '2024-02-20', 25);
+INSERT INTO users VALUES (7, 'grace',  '2024-07-10', NULL);
+
+INSERT INTO posts VALUES (1, 1, 'SQL 入门十讲',     '技术', '2024-09-01', 5800);
+INSERT INTO posts VALUES (2, 1, 'JOIN 比较全攻略',  '技术', '2024-10-12', 3200);
+INSERT INTO posts VALUES (3, 2, '我的咖啡日常',     '生活', '2024-09-20', 580);
+INSERT INTO posts VALUES (4, 3, '深度学习简史',     '技术', '2024-08-15', 12000);
+INSERT INTO posts VALUES (5, 3, 'GPT 时代的写作',   '观点', '2024-10-05', 8500);
+INSERT INTO posts VALUES (6, 3, '城市旅行 vs 山野', '生活', '2024-11-01', 2100);
+INSERT INTO posts VALUES (7, 4, '我的第一篇',       '随笔', '2024-10-20', 80);
+INSERT INTO posts VALUES (8, 6, '运动周记 #1',      '生活', '2024-11-05', 35);
+
+INSERT INTO comments VALUES (1, 1, 2, '写得真清楚！',   '2024-09-02 10:00');
+INSERT INTO comments VALUES (2, 1, 3, '收藏了',         '2024-09-03 14:30');
+INSERT INTO comments VALUES (3, 1, 4, '请问有视频吗？', '2024-09-05 09:00');
+INSERT INTO comments VALUES (4, 2, 4, '正好需要',       '2024-10-13 11:30');
+INSERT INTO comments VALUES (5, 4, 1, '强！',           '2024-08-16 21:00');
+INSERT INTO comments VALUES (6, 4, 2, '收藏 +1',        '2024-08-18 08:00');
+INSERT INTO comments VALUES (7, 4, 5, '什么时候出 part 2', '2024-09-01 12:00');
+INSERT INTO comments VALUES (8, 5, 6, '同感',           '2024-10-06 19:00');
+INSERT INTO comments VALUES (9, 6, 1, '想去山野',       '2024-11-02 10:30');
+
+INSERT INTO likes VALUES (1, 1, 2, '2024-09-01 12:00');
+INSERT INTO likes VALUES (2, 1, 3, '2024-09-02 09:00');
+INSERT INTO likes VALUES (3, 1, 4, '2024-09-03 22:00');
+INSERT INTO likes VALUES (4, 2, 3, '2024-10-12 18:00');
+INSERT INTO likes VALUES (5, 4, 1, '2024-08-15 21:00');
+INSERT INTO likes VALUES (6, 4, 2, '2024-08-16 09:00');
+INSERT INTO likes VALUES (7, 4, 5, '2024-08-30 12:00');
+INSERT INTO likes VALUES (8, 4, 6, '2024-09-05 16:00');
+INSERT INTO likes VALUES (9, 5, 1, '2024-10-05 11:00');
+INSERT INTO likes VALUES (10,5, 6, '2024-10-08 20:00');
+INSERT INTO likes VALUES (11,6, 5, '2024-11-01 14:00');
+INSERT INTO likes VALUES (12,3, 1, '2024-09-21 10:00');
+
+INSERT INTO follows VALUES (2, 1, '2022-07-01');
+INSERT INTO follows VALUES (4, 1, '2023-05-20');
+INSERT INTO follows VALUES (5, 1, '2023-10-10');
+INSERT INTO follows VALUES (1, 3, '2023-02-01');
+INSERT INTO follows VALUES (2, 3, '2023-03-15');
+INSERT INTO follows VALUES (4, 3, '2023-08-01');
+INSERT INTO follows VALUES (5, 3, '2023-09-10');
+INSERT INTO follows VALUES (6, 3, '2024-03-01');
+INSERT INTO follows VALUES (1, 2, '2022-08-10');
+INSERT INTO follows VALUES (3, 2, '2022-12-05');
+""".strip(),
 }
 
 

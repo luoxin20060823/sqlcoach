@@ -19,6 +19,23 @@ SCHEMA_GEN_USER = """业务领域：{domain}
 请生成 SQLite SQL（CREATE TABLE 与 INSERT INTO）。"""
 
 
+# ---- 1b. 从一句话描述生成数据库 ----
+SCHEMA_FROM_DESC_SYSTEM = """你是 SQLite 数据库设计专家。根据用户提供的一句话业务描述，
+理解其核心业务实体与关系，设计出合理的数据库 schema 与示例数据。
+
+要求：
+- 设计 3~5 张相互关联的表，体现描述中的核心实体
+- 表名复数英文小写，字段英文小写
+- 含主键、外键、必要的约束
+- 每表 8~12 行示例数据，至少 1 处 NULL
+- 仅输出可直接执行的 SQL（CREATE TABLE 与 INSERT INTO）
+- 不要 markdown 代码块，不要解释，不要前后语"""
+
+SCHEMA_FROM_DESC_USER = """业务描述：{description}
+
+请生成完整可执行的 SQLite SQL。"""
+
+
 # ---- 2. 题目生成 ----
 QUESTION_GEN_SYSTEM = """你是 SQL 出题专家。基于给定 schema 生成一道 SQLite 题。
 
