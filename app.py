@@ -77,9 +77,12 @@ def sidebar():
         accuracy = stats.get("accuracy", 0)
         progress_card("总题数", total, max(total, 1), "")
         progress_card("正确数", correct, max(total, 1), f" / {total}")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("正确率", f"{accuracy:.0%}")
+        progress_card(
+            "正确率",
+            int(round(accuracy * 100)),
+            100,
+            "%",
+        )
 
         st.divider()
 
