@@ -13,7 +13,7 @@ def render_review_tab(llm_client, store):
         st.info("还没有错题或放弃记录。继续做题吧。")
         return
 
-    st.caption(f"共 {len(wrong)} 道待复习题。点列表中任意一题，重新作答。")
+    st.caption(f"共 {len(wrong)} 道待复习题。点列表中任意一行选择该题重新作答。")
 
     verdict_label = {"wrong": "错误", "flawed": "瑕疵", "skipped": "看答案"}
     df = pd.DataFrame([
@@ -27,13 +27,24 @@ def render_review_tab(llm_client, store):
         }
         for w in wrong
     ])
-    st.dataframe(df, use_container_width=True, hide_index=True)
 
-    options = [f"#{w['question_id']} [{w['difficulty']}] {w['question_text'][:30]}" for w in wrong]
-    pick = st.selectbox("选择一道题重新作答", options)
-    if not pick:
+    # 表格 + 单行选择（Streamlit 1.35+）
+    selection = st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="review_table_selection",
+    )
+
+    sel_rows = (
+        selection.selection.rows if selection and getattr(selection, "selection", None) else []
+    )
+    if not sel_rows:
+        st.info("点击表格中的任意一行选择该题。")
         return
-    qid = int(pick.split("#", 1)[1].split(" ", 1)[0])
+    qid = int(df.iloc[sel_rows[0]]["id"])
     q = store.get_question(qid)
     if not q:
         st.error("题目已不存在。")

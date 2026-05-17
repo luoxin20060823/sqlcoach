@@ -24,6 +24,7 @@ def render_report_tab(llm_client, store):
         st.metric("正确率", f"{stats['accuracy']:.0%}")
 
     history = store.get_user_history(limit=200)
+    first_attempts = store.get_first_attempts(limit=200)
     dim_stats = store.get_dimension_stats()
 
     # 趋势图：每日正确率折线 + 每日做题数柱状（同一行）
@@ -47,15 +48,17 @@ def render_report_tab(llm_client, store):
         st.plotly_chart(_build_dimension_bar(dim_stats), use_container_width=True)
 
     # 答题历史
-    st.markdown("### 答题历史（最近 20 条）")
-    if history:
-        df = pd.DataFrame(history)
+    st.markdown("### 答题历史（最近 20 条，每题只显示第一次）")
+    if first_attempts:
+        df = pd.DataFrame(first_attempts)
         df["结果"] = df["verdict"].map({
-            "correct": "正确", "flawed": "瑕疵", "wrong": "错误", "skipped": "看答案",
+            "correct": "正确", "flawed": "瑕疵", "wrong": "错误",
         })
         cols = [c for c in ["question_text", "difficulty", "knowledge_point", "结果"]
                 if c in df.columns]
         st.dataframe(df[cols].head(20), use_container_width=True, hide_index=True)
+    else:
+        st.caption("还没有有效的答题记录。")
 
     # 智能分析
     if llm_client:
@@ -69,7 +72,7 @@ def render_report_tab(llm_client, store):
         analysis = st.session_state.get("last_analysis")
         if analysis:
             _render_analysis(analysis)
-            _render_export(stats, history, dim_stats, analysis)
+            _render_export(stats, first_attempts, dim_stats, analysis)
 
     # 错误分布
     st.markdown("### 错误类型分布")
@@ -237,11 +240,11 @@ def _build_markdown_report(stats, history, dim_stats, analysis) -> str:
         for s in analysis.get("suggestions", []):
             lines.append(f"- {s}")
         lines.append("")
-    lines.append("## 最近 20 条记录")
+    lines.append("## 最近 20 条记录（每题第一次）")
     lines.append("| 难度 | 知识点 | 结果 | 题目 |")
     lines.append("|---|---|---|---|")
     for h in history[:20]:
-        verdict = {"correct": "正确", "flawed": "瑕疵", "wrong": "错误", "skipped": "看答案"}.get(
+        verdict = {"correct": "正确", "flawed": "瑕疵", "wrong": "错误"}.get(
             h.get("verdict", ""), h.get("verdict", "")
         )
         title = (h.get("question_text") or "").replace("|", "\\|").replace("\n", " ")[:60]

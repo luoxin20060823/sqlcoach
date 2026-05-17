@@ -188,6 +188,33 @@ class DataStore:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def get_first_attempts(self, limit: int = 100) -> list:
+        """每题只取第一次提交（排除 skipped/查看答案），按时间倒序。
+
+        用于答题历史展示：避免同一题多次提交反复出现。
+        """
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """WITH first_per_q AS (
+                       SELECT uh.*,
+                              ROW_NUMBER() OVER (
+                                  PARTITION BY question_id ORDER BY id
+                              ) AS rn
+                       FROM user_history uh
+                       WHERE verdict != 'skipped' AND question_id IS NOT NULL
+                   )
+                   SELECT fpq.*, qb.question_text, qb.difficulty,
+                          qb.knowledge_point, qb.answer_sql, qb.schema_name,
+                          qb.question_type
+                   FROM first_per_q fpq
+                   LEFT JOIN question_bank qb ON fpq.question_id = qb.id
+                   WHERE fpq.rn = 1
+                   ORDER BY fpq.created_at DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def get_wrong_questions(self, limit: int = 50) -> list:
         """获取最近未完整做对的题（含 wrong / flawed / skipped）。
 
