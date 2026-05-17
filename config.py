@@ -22,7 +22,7 @@ DEFAULT_SETTINGS = {
     # 一次只调用 1 个 LLM 请求生成的最大 token 上限（越小越快）
     "max_tokens_question": 1024,
     "max_tokens_judge": 768,
-    "max_tokens_explain": 1024,
+    "max_tokens_explain": 1536,
     "max_tokens_schema": 3072,
     # API 请求超时（秒）
     "request_timeout": 30,
@@ -73,6 +73,9 @@ def load_settings() -> dict:
     cfg = _read_config()
     settings = dict(DEFAULT_SETTINGS)
     settings.update(cfg.get("settings", {}))
+    # 兼容：旧版 max_tokens_explain=1024 限制了详细解析篇幅，自动升到 1536
+    if int(settings.get("max_tokens_explain", 0)) < 1536:
+        settings["max_tokens_explain"] = 1536
     return settings
 
 

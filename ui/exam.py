@@ -509,7 +509,7 @@ def _explain_all(llm_client, state):
                 analysis=r.get("analysis", ""),
             ),
             "temperature": 0.3,
-            "max_tokens": 1024,
+            "max_tokens": 1536,
         })
 
     with st.spinner(f"并发生成 {len(pending)} 道题的解析..."):
