@@ -3,6 +3,17 @@ from agent.llm import LLMClient
 from prompts.templates import TUTOR_SYSTEM, TUTOR_USER
 from config import load_settings
 
+# 自由答疑专用 system prompt（不输出章节结构，只回答问题）
+_CHAT_SYSTEM = (
+    "你是一个友好的 SQL 学习助教。用户会问你各种 SQL 相关的问题。\n\n"
+    "要求：\n"
+    "- 直接回答用户的问题，不要输出任何固定章节（如「题目解读」「解题思路」「答案点评」「关键知识点」等）\n"
+    "- 如果用户问的是具体语法，给出简洁的解释 + 可执行的 SQL 示例\n"
+    "- 如果用户问的是概念对比，用表格或列表对比说明\n"
+    "- 语言简洁、亲切，用中文回答\n"
+    "- 如果涉及当前数据库 schema，用真实的表名和字段名举例"
+)
+
 
 class Tutor:
     """错题解析 + 自由答疑（含多轮历史）"""
@@ -31,10 +42,10 @@ class Tutor:
         """单轮自由答疑。"""
         prompt = (
             f"数据库 Schema：\n{schema}\n\n学生提问：{user_question}\n\n"
-            f"请用通俗易懂的方式解答；如涉及 SQL，请给可执行的示例。"
+            f"请直接回答这个问题。"
         )
         return self.llm.chat(
-            system_prompt=TUTOR_SYSTEM,
+            system_prompt=_CHAT_SYSTEM,
             user_message=prompt,
             temperature=0.4,
             max_tokens=int(self._settings.get("max_tokens_explain", 1024)),
@@ -42,7 +53,7 @@ class Tutor:
 
     def chat(self, schema: str, history: list, user_message: str) -> str:
         """多轮答疑：history = [{role, content}, ...] OpenAI 格式。"""
-        messages = [{"role": "system", "content": TUTOR_SYSTEM}]
+        messages = [{"role": "system", "content": _CHAT_SYSTEM}]
         if schema:
             messages.append({
                 "role": "system",
