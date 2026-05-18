@@ -18,9 +18,15 @@ _GLOBAL_CSS = """
 }
 
 .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 4.5rem !important;
     padding-bottom: 3rem !important;
     max-width: 1280px;
+}
+
+/* Streamlit 顶部 header 透明化，避免挡住控制栏 */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 3rem;
 }
 
 h1, h2, h3 {
