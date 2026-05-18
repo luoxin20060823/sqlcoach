@@ -79,7 +79,18 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
             use_container_width=True,
         )
     with col3:
-        hint_btn = st.button("提示", use_container_width=True)
+        # 提示按钮：3 层递进，用完后变"隐藏/显示提示"
+        hint_level = st.session_state.get("hint_level", 0)
+        hints_hidden = st.session_state.get("hints_hidden", False)
+        if hint_level >= 3:
+            # 3 层已给完
+            toggle_text = "显示提示" if hints_hidden else "隐藏提示"
+            hint_btn = st.button(toggle_text, use_container_width=True)
+        else:
+            hint_btn = st.button(
+                f"提示 ({hint_level}/3)" if hint_level > 0 else "提示",
+                use_container_width=True,
+            )
     with col4:
         # 「查看答案」/「隐藏答案」切换：show_answer 决定按钮文案
         showing_answer = bool(st.session_state.get("show_answer"))
@@ -102,7 +113,12 @@ def _render_sql_editor(llm_client, store, full_schema_sql, current_q):
         _handle_submission(llm_client, store, full_schema_sql, current_q, user_sql)
 
     if hint_btn and current_q and llm_client:
-        _request_hint(llm_client, full_schema_sql, current_q)
+        if hint_level >= 3:
+            # 切换显示/隐藏
+            st.session_state["hints_hidden"] = not st.session_state.get("hints_hidden", False)
+            st.rerun()
+        else:
+            _request_hint(llm_client, full_schema_sql, current_q)
 
     if toggle_answer_btn:
         if showing_answer:
@@ -365,6 +381,7 @@ def _handle_next_question():
         st.session_state.pop(key, None)
     st.session_state["hint_level"] = 0
     st.session_state["hints"] = []
+    st.session_state["hints_hidden"] = False
     st.session_state["trigger_new_question"] = True
     st.rerun()
 
@@ -373,17 +390,22 @@ def _display_hints():
     hints = st.session_state.get("hints", [])
     if not hints:
         return
-    with st.expander(f"提示（共 {len(hints)} 层）", expanded=True):
+    if st.session_state.get("hints_hidden", False):
+        return  # 用户选择了隐藏
+    with st.expander(f"提示（{len(hints)}/3 层）", expanded=True):
         for i, h in enumerate(hints, 1):
             level_label = {1: "方向", 2: "引导", 3: "具体"}.get(i, f"第{i}层")
             st.markdown(f"**{level_label}**: {h}")
 
 
 def _request_hint(llm_client, full_schema_sql, current_question):
-    """生成一层提示并立即刷新页面显示。"""
+    """生成一层提示并立即刷新页面显示。最多 3 层。"""
     from agent.tutor import Tutor
     hint_level = st.session_state.get("hint_level", 0) + 1
+    if hint_level > 3:
+        return  # 已满，不再生成
     st.session_state["hint_level"] = hint_level
+    st.session_state["hints_hidden"] = False  # 生成新提示时自动展开
     level_prompts = {
         1: f"针对题目'{current_question.get('question', '')}'，给一个高层思路（涉及哪些表/关键字），不要给 SQL。1~2 句。",
         2: f"针对题目'{current_question.get('question', '')}'，给具体引导（如何 JOIN/聚合）。仍不要完整 SQL。2~3 句。",
