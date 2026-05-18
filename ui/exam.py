@@ -11,6 +11,7 @@
 import sqlite3
 import time
 import math
+import re
 import pandas as pd
 import streamlit as st
 
@@ -449,7 +450,7 @@ def _render_finished(llm_client, store):
             st.markdown("**你的答案**:")
             st.code(r["user_sql"] or "（未作答）", language="sql")
             st.markdown("**标准答案**:")
-            st.code(q["answer_sql"], language="sql")
+            st.code(_format_sql_display(q["answer_sql"]), language="sql")
 
             explanation = r.get("explanation")
             if explanation:
@@ -530,6 +531,22 @@ def _explain_all(llm_client, state):
 
 
 # ---------------- 工具 ----------------
+def _format_sql_display(sql: str) -> str:
+    """简单格式化 SQL 用于展示。"""
+    if not sql or "\n" in sql.strip():
+        return (sql or "").strip()
+    keywords = [
+        r'\bFROM\b', r'\bWHERE\b', r'\bAND\b', r'\bOR\b',
+        r'\bINNER\s+JOIN\b', r'\bLEFT\s+JOIN\b', r'\bRIGHT\s+JOIN\b',
+        r'\bJOIN\b', r'\bON\b', r'\bGROUP\s+BY\b', r'\bHAVING\b',
+        r'\bORDER\s+BY\b', r'\bLIMIT\b',
+    ]
+    result = sql.strip()
+    for kw in keywords:
+        result = re.sub(r'(?i)\s+(' + kw[2:] + ')', r'\n\1', result)
+    return result.strip()
+
+
 def _fmt_duration(seconds: int) -> str:
     if seconds < 60:
         return f"{seconds}s"

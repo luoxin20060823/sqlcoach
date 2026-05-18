@@ -196,7 +196,7 @@ def _display_verdict():
         ans_sql = current_q.get("answer_sql", "")
         if ans_sql:
             st.markdown("### 标准答案")
-            st.code(ans_sql, language="sql")
+            st.code(_format_sql(ans_sql), language="sql")
 
     optimization = st.session_state.get("last_optimization")
     if optimization:
@@ -396,6 +396,32 @@ def _display_hints():
         for i, h in enumerate(hints, 1):
             level_label = {1: "思考方向", 2: "关键片段", 3: "解题思路"}.get(i, f"第{i}层")
             st.markdown(f"**{level_label}**: {h}")
+
+
+def _format_sql(sql: str) -> str:
+    """简单格式化 SQL：在主要关键字前换行，让展示更易读。"""
+    import re
+    if not sql:
+        return sql
+    # 如果已经有换行（多行 SQL），直接返回
+    if "\n" in sql.strip():
+        return sql.strip()
+    # 在这些关键字前插入换行
+    keywords = [
+        r'\bSELECT\b', r'\bFROM\b', r'\bWHERE\b', r'\bAND\b', r'\bOR\b',
+        r'\bINNER\s+JOIN\b', r'\bLEFT\s+JOIN\b', r'\bRIGHT\s+JOIN\b',
+        r'\bJOIN\b', r'\bON\b',
+        r'\bGROUP\s+BY\b', r'\bHAVING\b', r'\bORDER\s+BY\b',
+        r'\bLIMIT\b', r'\bUNION\b', r'\bEXCEPT\b', r'\bINTERSECT\b',
+        r'\bWITH\b', r'\bINSERT\b', r'\bUPDATE\b', r'\bSET\b', r'\bDELETE\b',
+    ]
+    result = sql.strip()
+    for kw in keywords:
+        # 在关键字前加换行（但不在字符串开头重复加）
+        result = re.sub(r'(?i)(?<!^)\s+(' + kw[2:] + ')', r'\n\1', result)
+    # 清理：SELECT 不应该被前面的换行影响（它通常是第一个词）
+    result = result.strip()
+    return result
 
 
 def _request_hint(llm_client, full_schema_sql, current_question):

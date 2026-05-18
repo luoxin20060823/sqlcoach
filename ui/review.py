@@ -1,10 +1,27 @@
 """错题复习 Tab — 列出做错或放弃过的题，重新作答"""
+import re
 import sqlite3
 import pandas as pd
 import streamlit as st
 from agent.judge import JudgeEngine
 from ui.sql_editor import sql_editor
 from ui.styles import question_card, verdict_banner, empty_state
+
+
+def _format_sql_display(sql: str) -> str:
+    """简单格式化 SQL 用于展示。"""
+    if not sql or "\n" in sql.strip():
+        return (sql or "").strip()
+    keywords = [
+        r'\bFROM\b', r'\bWHERE\b', r'\bAND\b', r'\bOR\b',
+        r'\bINNER\s+JOIN\b', r'\bLEFT\s+JOIN\b', r'\bRIGHT\s+JOIN\b',
+        r'\bJOIN\b', r'\bON\b', r'\bGROUP\s+BY\b', r'\bHAVING\b',
+        r'\bORDER\s+BY\b', r'\bLIMIT\b',
+    ]
+    result = sql.strip()
+    for kw in keywords:
+        result = re.sub(r'(?i)\s+(' + kw[2:] + ')', r'\n\1', result)
+    return result.strip()
 
 
 def render_review_tab(llm_client, store):
@@ -106,7 +123,7 @@ def render_review_tab(llm_client, store):
 
     if show_answer:
         st.markdown("### 标准答案")
-        st.code(q["answer_sql"], language="sql")
+        st.code(_format_sql_display(q["answer_sql"]), language="sql")
 
     res_key = f"review_result_{qid}"
     if st.session_state.get(res_key):
