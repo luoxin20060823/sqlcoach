@@ -399,29 +399,31 @@ def _display_hints():
 
 
 def _format_sql(sql: str) -> str:
-    """简单格式化 SQL：在主要关键字前换行，让展示更易读。"""
+    """格式化 SQL：在主要关键字前换行 + 子句缩进。"""
     import re
     if not sql:
         return sql
-    # 如果已经有换行（多行 SQL），直接返回
     if "\n" in sql.strip():
         return sql.strip()
-    # 在这些关键字前插入换行
-    keywords = [
-        r'\bSELECT\b', r'\bFROM\b', r'\bWHERE\b', r'\bAND\b', r'\bOR\b',
-        r'\bINNER\s+JOIN\b', r'\bLEFT\s+JOIN\b', r'\bRIGHT\s+JOIN\b',
-        r'\bJOIN\b', r'\bON\b',
-        r'\bGROUP\s+BY\b', r'\bHAVING\b', r'\bORDER\s+BY\b',
-        r'\bLIMIT\b', r'\bUNION\b', r'\bEXCEPT\b', r'\bINTERSECT\b',
-        r'\bWITH\b', r'\bINSERT\b', r'\bUPDATE\b', r'\bSET\b', r'\bDELETE\b',
-    ]
+
     result = sql.strip()
-    for kw in keywords:
-        # 在关键字前加换行（但不在字符串开头重复加）
-        result = re.sub(r'(?i)(?<!^)\s+(' + kw[2:] + ')', r'\n\1', result)
-    # 清理：SELECT 不应该被前面的换行影响（它通常是第一个词）
-    result = result.strip()
-    return result
+    # 主关键字前换行（不缩进）
+    main_kw = [
+        r'SELECT\b', r'FROM\b', r'WHERE\b',
+        r'INNER\s+JOIN\b', r'LEFT\s+JOIN\b', r'RIGHT\s+JOIN\b', r'CROSS\s+JOIN\b',
+        r'JOIN\b', r'GROUP\s+BY\b', r'HAVING\b', r'ORDER\s+BY\b',
+        r'LIMIT\b', r'UNION\b', r'EXCEPT\b', r'INTERSECT\b',
+        r'INSERT\b', r'UPDATE\b', r'DELETE\b', r'WITH\b',
+    ]
+    for kw in main_kw:
+        result = re.sub(r'(?i)\s+(' + kw + ')', r'\n\1', result)
+
+    # 子关键字前换行 + 缩进
+    sub_kw = [r'ON\b', r'AND\b', r'OR\b', r'SET\b']
+    for kw in sub_kw:
+        result = re.sub(r'(?i)\s+(' + kw + ')', r'\n  \1', result)
+
+    return result.strip()
 
 
 def _request_hint(llm_client, full_schema_sql, current_question):

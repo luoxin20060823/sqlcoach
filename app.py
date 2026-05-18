@@ -206,10 +206,14 @@ def _render_top_bar():
                                     label_visibility="collapsed")
         if domain_pick in DOMAINS:
             st.session_state["current_domain"] = domain_pick
+            st.session_state["_show_custom_db"] = False
+            st.session_state["_show_desc_gen"] = False
         elif domain_pick == "自定义数据库...":
             st.session_state["_show_custom_db"] = True
+            st.session_state["_show_desc_gen"] = False
         elif domain_pick == "用一句话描述生成...":
             st.session_state["_show_desc_gen"] = True
+            st.session_state["_show_custom_db"] = False
 
     with col2:
         difficulty = st.selectbox(
