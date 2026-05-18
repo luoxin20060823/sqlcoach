@@ -394,7 +394,7 @@ def _display_hints():
         return  # 用户选择了隐藏
     with st.expander(f"提示（{len(hints)}/3 层）", expanded=True):
         for i, h in enumerate(hints, 1):
-            level_label = {1: "方向", 2: "引导", 3: "具体"}.get(i, f"第{i}层")
+            level_label = {1: "思考方向", 2: "关键片段", 3: "解题思路"}.get(i, f"第{i}层")
             st.markdown(f"**{level_label}**: {h}")
 
 
@@ -407,9 +407,9 @@ def _request_hint(llm_client, full_schema_sql, current_question):
     st.session_state["hint_level"] = hint_level
     st.session_state["hints_hidden"] = False  # 生成新提示时自动展开
     level_prompts = {
-        1: f"针对题目'{current_question.get('question', '')}'，给一个高层思路（涉及哪些表/关键字），不要给 SQL。1~2 句。",
-        2: f"针对题目'{current_question.get('question', '')}'，给具体引导（如何 JOIN/聚合）。仍不要完整 SQL。2~3 句。",
-        3: f"针对题目'{current_question.get('question', '')}'，给关键 SQL 片段，但不完整。3~4 句。",
+        1: f"针对题目'{current_question.get('question', '')}'，给出思考方向的提示：这道题需要从哪个角度入手？涉及哪些表？需要用到什么类型的操作（如过滤、连接、聚合等）？只给方向，不要给任何 SQL 片段。1~2 句话。",
+        2: f"针对题目'{current_question.get('question', '')}'，给出关键片段的提示：写出解题中最关键的 SQL 片段或条件表达式（如 JOIN 条件、WHERE 子句、GROUP BY 字段等），但不要给出完整的 SQL 语句。2~3 句话。",
+        3: f"针对题目'{current_question.get('question', '')}'，给出整体解题思路：分步骤说明从头到尾应该怎么构造这条 SQL（第一步做什么、第二步做什么...），但不要直接写出完整可执行的 SQL 答案。3~4 句话。",
     }
     prompt = level_prompts.get(hint_level, level_prompts[3])
     with st.spinner(f"生成第 {hint_level} 层提示..."):
