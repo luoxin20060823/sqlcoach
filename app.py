@@ -65,210 +65,6 @@ def init_session_state():
             pass
 
 
-def sidebar():
-    with st.sidebar:
-        sidebar_logo()
-
-        # 学习进度
-        st.markdown("### 学习进度")
-        stats = st.session_state.get("stats", {})
-        total = stats.get("total", 0)
-        correct = stats.get("correct", 0)
-        accuracy = stats.get("accuracy", 0)
-        progress_card("总题数", total, max(total, 1), "")
-        progress_card("正确数", correct, max(total, 1), f" / {total}")
-        progress_card(
-            "正确率",
-            int(round(accuracy * 100)),
-            100,
-            "%",
-        )
-
-        st.divider()
-
-        # 学习设置
-        st.markdown("### 学习设置")
-        domain_choices = list(DOMAINS) + ["自定义数据库...", "用一句话描述生成..."]
-        cur_domain = st.session_state["current_domain"]
-        if cur_domain in domain_choices:
-            idx = domain_choices.index(cur_domain)
-        else:
-            # 派生别名（自定义生成出来的领域）→ 默认停留在描述生成 Tab
-            idx = len(domain_choices) - 1
-        domain_pick = st.selectbox("知识领域", domain_choices, index=idx)
-
-        if domain_pick == "自定义数据库...":
-            generated_alias = st.session_state.get("current_domain")
-            if generated_alias and generated_alias not in DOMAINS:
-                st.caption(f"当前已加载：{generated_alias}")
-            custom_name = st.text_input(
-                "数据库名（用于关联题库）",
-                value=st.session_state.get("custom_db_name", ""),
-                placeholder="如：我的学籍系统",
-            )
-            st.session_state["custom_db_name"] = custom_name
-            custom_sql = st.text_area(
-                "粘贴建库 SQL（CREATE TABLE 与 INSERT INTO，SQLite 方言）",
-                value=st.session_state.get("custom_db_sql", ""),
-                placeholder=(
-                    "CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT);\n"
-                    "INSERT INTO students VALUES (1, '张三');\n"
-                    "INSERT INTO students VALUES (2, '李四');"
-                ),
-                height=180,
-            )
-            st.session_state["custom_db_sql"] = custom_sql
-            if st.button(
-                "加载自定义数据库",
-                type="primary",
-                use_container_width=True,
-                disabled=not bool(custom_sql.strip() and custom_name.strip()),
-            ):
-                _load_custom_database(custom_name.strip(), custom_sql.strip())
-        elif domain_pick == "用一句话描述生成...":
-            generated_alias = st.session_state.get("current_domain")
-            if generated_alias and generated_alias not in DOMAINS:
-                st.caption(f"当前已加载：{generated_alias}")
-            desc = st.text_area(
-                "用一句话描述你想要的数据库",
-                value=st.session_state.get("custom_description", ""),
-                placeholder="如：一个简易的健身房系统，需要会员、教练、课程、预约课等表",
-                height=80,
-            )
-            st.session_state["custom_description"] = desc
-            if st.button("从描述生成数据库", type="primary",
-                         use_container_width=True,
-                         disabled=not bool(desc.strip())):
-                _generate_schema_from_description(desc.strip())
-        else:
-            st.session_state["current_domain"] = domain_pick
-
-        difficulty = st.selectbox(
-            "难度", ["easy", "medium", "hard"],
-            index=["easy", "medium", "hard"].index(st.session_state["current_difficulty"]),
-            format_func=lambda x: {"easy": "初级", "medium": "中级", "hard": "高级"}[x],
-        )
-        st.session_state["current_difficulty"] = difficulty
-
-        type_keys = ["random"] + list(QUESTION_TYPES.keys())
-        type_labels = dict([("random", "随机出题")] + list(QUESTION_TYPES.items()))
-        cur_type = st.session_state.get("current_question_type", "random")
-        if cur_type not in type_keys:
-            cur_type = "random"
-        question_type = st.selectbox(
-            "题目类型", type_keys, index=type_keys.index(cur_type),
-            format_func=lambda x: type_labels.get(x, x),
-        )
-        st.session_state["current_question_type"] = question_type
-
-        st.divider()
-
-        # 操作
-        st.markdown("### 操作")
-        if st.button("生成数据库", type="primary", use_container_width=True):
-            _generate_schema(force_llm=False)
-
-        if st.button("生成题目", type="primary", use_container_width=True):
-            _generate_question()
-
-        if st.button("刷新统计", use_container_width=True):
-            st.session_state["stats"] = st.session_state["store"].get_stats()
-            st.rerun()
-
-        st.divider()
-
-        # 高级设置
-        with st.expander("高级设置", expanded=False):
-            # API Key
-            st.markdown("**API 设置**")
-            api_key = st.text_input(
-                "DeepSeek API Key",
-                type="password",
-                value=st.session_state["api_key"],
-                placeholder="sk-...",
-            )
-            if api_key != st.session_state["api_key"]:
-                st.session_state["api_key"] = api_key
-                if api_key:
-                    st.session_state["llm_client"] = LLMClient(api_key=api_key)
-                else:
-                    st.session_state["llm_client"] = None
-
-            remember = st.checkbox(
-                "记住 API Key（保存到本地）",
-                value=st.session_state.get("remember_key", False),
-            )
-            if remember != st.session_state.get("remember_key"):
-                st.session_state["remember_key"] = remember
-                if remember and api_key:
-                    save_api_key(api_key)
-                    st.success("API Key 已保存。")
-                elif not remember:
-                    clear_api_key()
-                    st.info("已清除本地 API Key。")
-
-            st.markdown("---")
-
-            # LLM 重生成
-            st.markdown("**数据库重生成**")
-            if st.button("LLM 重新生成数据库", use_container_width=True,
-                         help="跳过预置/缓存，重新调 LLM 生成数据库（耗时较长）"):
-                _generate_schema(force_llm=True)
-
-            st.markdown("---")
-
-            # 性能 / 体验开关
-            st.markdown("**性能 / 体验**")
-            settings = dict(st.session_state.get("settings", DEFAULT_SETTINGS))
-            settings["enable_semantic_judge"] = st.checkbox(
-                "LLM 语义判题（更严格，但慢）",
-                value=settings.get("enable_semantic_judge", False),
-            )
-            settings["enable_auto_optimization"] = st.checkbox(
-                "答对后自动调 LLM 给优化建议",
-                value=settings.get("enable_auto_optimization", False),
-            )
-            settings["prefetch_next_question"] = st.checkbox(
-                "做题时静默预取下一题",
-                value=settings.get("prefetch_next_question", True),
-            )
-            settings["reuse_question_bank"] = st.checkbox(
-                "题库复用（同条件先抽老题）",
-                value=settings.get("reuse_question_bank", True),
-            )
-
-            st.markdown("---")
-            st.markdown("**外观主题**")
-            theme_choice = st.radio(
-                "主题",
-                options=["default", "classic"],
-                format_func=lambda x: "默认（美化版）" if x == "default" else "经典（原生 Streamlit）",
-                index=0 if settings.get("theme_version", "default") == "default" else 1,
-                horizontal=True,
-            )
-            settings["theme_version"] = theme_choice
-
-            if st.button("保存设置", use_container_width=True):
-                save_settings(settings)
-                st.session_state["settings"] = settings
-                if st.session_state["api_key"]:
-                    st.session_state["llm_client"] = LLMClient(api_key=st.session_state["api_key"])
-                st.success("已保存。如未生效，请刷新页面。")
-                st.rerun()
-
-        # 部署版本水印（定位部署是否生效用）
-        st.divider()
-        try:
-            import os as _os
-            vpath = _os.path.join(_os.path.dirname(__file__), "VERSION")
-            if _os.path.exists(vpath):
-                with open(vpath, "r", encoding="utf-8") as _f:
-                    _ver = _f.read().strip()
-                st.caption(f"build: {_ver}")
-        except Exception:
-            pass
-
-
 def _load_schema_into_state(sql: str):
     st.session_state["current_schema_sql"] = sql
 
@@ -395,6 +191,160 @@ def _load_custom_database(db_name: str, sql_text: str):
     st.rerun()
 
 
+def _render_top_bar():
+    """顶部控制栏：领域选择 + 难度 + 题型 + 生成按钮 + 高级设置 popover。"""
+    col1, col2, col3, col4, col5, col6 = st.columns([2.0, 1.2, 1.8, 1.0, 1.0, 1.0])
+
+    with col1:
+        domain_choices = list(DOMAINS) + ["自定义数据库...", "用一句话描述生成..."]
+        cur_domain = st.session_state["current_domain"]
+        if cur_domain in domain_choices:
+            idx = domain_choices.index(cur_domain)
+        else:
+            idx = len(domain_choices) - 1
+        domain_pick = st.selectbox("领域", domain_choices, index=idx,
+                                    label_visibility="collapsed")
+        if domain_pick in DOMAINS:
+            st.session_state["current_domain"] = domain_pick
+        elif domain_pick == "自定义数据库...":
+            st.session_state["_show_custom_db"] = True
+        elif domain_pick == "用一句话描述生成...":
+            st.session_state["_show_desc_gen"] = True
+
+    with col2:
+        difficulty = st.selectbox(
+            "难度", ["easy", "medium", "hard"],
+            index=["easy", "medium", "hard"].index(st.session_state["current_difficulty"]),
+            format_func=lambda x: {"easy": "初级", "medium": "中级", "hard": "高级"}[x],
+            label_visibility="collapsed",
+        )
+        st.session_state["current_difficulty"] = difficulty
+
+    with col3:
+        type_keys = ["random"] + list(QUESTION_TYPES.keys())
+        type_labels = dict([("random", "随机出题")] + list(QUESTION_TYPES.items()))
+        cur_type = st.session_state.get("current_question_type", "random")
+        if cur_type not in type_keys:
+            cur_type = "random"
+        question_type = st.selectbox(
+            "题型", type_keys, index=type_keys.index(cur_type),
+            format_func=lambda x: type_labels.get(x, x),
+            label_visibility="collapsed",
+        )
+        st.session_state["current_question_type"] = question_type
+
+    with col4:
+        if st.button("生成数据库", type="primary", use_container_width=True):
+            _generate_schema(force_llm=False)
+
+    with col5:
+        if st.button("生成题目", type="primary", use_container_width=True):
+            _generate_question()
+
+    with col6:
+        with st.popover("设置", use_container_width=True):
+            _render_settings_popover()
+
+    # 自定义数据库展开区
+    if st.session_state.get("_show_custom_db"):
+        with st.expander("自定义数据库", expanded=True):
+            custom_name = st.text_input(
+                "数据库名",
+                value=st.session_state.get("custom_db_name", ""),
+                placeholder="如：我的学籍系统",
+            )
+            st.session_state["custom_db_name"] = custom_name
+            custom_sql = st.text_area(
+                "粘贴建库 SQL（CREATE TABLE + INSERT INTO）",
+                value=st.session_state.get("custom_db_sql", ""),
+                height=120,
+            )
+            st.session_state["custom_db_sql"] = custom_sql
+            if st.button("加载", disabled=not bool(custom_sql.strip() and custom_name.strip())):
+                _load_custom_database(custom_name.strip(), custom_sql.strip())
+                st.session_state["_show_custom_db"] = False
+
+    if st.session_state.get("_show_desc_gen"):
+        with st.expander("用一句话描述生成", expanded=True):
+            desc = st.text_area(
+                "描述你想要的数据库",
+                value=st.session_state.get("custom_description", ""),
+                placeholder="如：一个简易的健身房系统，需要会员、教练、课程、预约课等表",
+                height=80,
+            )
+            st.session_state["custom_description"] = desc
+            if st.button("从描述生成", disabled=not bool(desc.strip())):
+                _generate_schema_from_description(desc.strip())
+                st.session_state["_show_desc_gen"] = False
+
+
+def _render_settings_popover():
+    """高级设置 popover 内容。"""
+    st.markdown("**API Key**")
+    api_key = st.text_input(
+        "DeepSeek API Key",
+        type="password",
+        value=st.session_state["api_key"],
+        placeholder="sk-...",
+        key="settings_api_key",
+    )
+    if api_key != st.session_state["api_key"]:
+        st.session_state["api_key"] = api_key
+        if api_key:
+            st.session_state["llm_client"] = LLMClient(api_key=api_key)
+        else:
+            st.session_state["llm_client"] = None
+
+    remember = st.checkbox(
+        "记住 Key",
+        value=st.session_state.get("remember_key", False),
+        key="settings_remember",
+    )
+    if remember != st.session_state.get("remember_key"):
+        st.session_state["remember_key"] = remember
+        if remember and api_key:
+            save_api_key(api_key)
+        elif not remember:
+            clear_api_key()
+
+    st.markdown("---")
+    st.markdown("**性能**")
+    settings = dict(st.session_state.get("settings", DEFAULT_SETTINGS))
+    settings["enable_semantic_judge"] = st.checkbox(
+        "LLM 语义判题", value=settings.get("enable_semantic_judge", False),
+        key="s_semantic",
+    )
+    settings["prefetch_next_question"] = st.checkbox(
+        "预取下一题", value=settings.get("prefetch_next_question", True),
+        key="s_prefetch",
+    )
+    settings["reuse_question_bank"] = st.checkbox(
+        "题库复用", value=settings.get("reuse_question_bank", True),
+        key="s_reuse",
+    )
+
+    st.markdown("---")
+    if st.button("LLM 重新生成数据库", use_container_width=True, key="s_regen"):
+        _generate_schema(force_llm=True)
+
+    if st.button("保存设置", use_container_width=True, key="s_save"):
+        save_settings(settings)
+        st.session_state["settings"] = settings
+        if st.session_state["api_key"]:
+            st.session_state["llm_client"] = LLMClient(api_key=st.session_state["api_key"])
+        st.rerun()
+
+    # 版本水印
+    try:
+        import os as _os
+        vpath = _os.path.join(_os.path.dirname(__file__), "VERSION")
+        if _os.path.exists(vpath):
+            with open(vpath, "r", encoding="utf-8") as _f:
+                st.caption(f"build: {_f.read().strip()}")
+    except Exception:
+        pass
+
+
 def _clear_question_state():
     for key in [
         "last_result", "last_explanation", "last_explanation_error",
@@ -473,7 +423,8 @@ def main():
         st.session_state["trigger_new_question"] = False
         _generate_question()
 
-    sidebar()
+    # ===== 顶部控制栏（替代侧边栏） =====
+    _render_top_bar()
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "练习", "考试模式", "分析报告", "数据浏览", "错题复习", "自由答疑",
