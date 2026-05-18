@@ -400,24 +400,66 @@ def _display_hints():
 
 def _request_hint(llm_client, full_schema_sql, current_question):
     """生成一层提示并立即刷新页面显示。最多 3 层。"""
-    from agent.tutor import Tutor
     hint_level = st.session_state.get("hint_level", 0) + 1
     if hint_level > 3:
-        return  # 已满，不再生成
+        return
     st.session_state["hint_level"] = hint_level
-    st.session_state["hints_hidden"] = False  # 生成新提示时自动展开
+    st.session_state["hints_hidden"] = False
+
+    question_text = current_question.get("question", "")
+
+    # 专用 system prompt：只给提示，不给解析/点评/知识点
+    hint_system = (
+        "你是一个 SQL 学习提示助手。你的任务是根据用户的请求层级，"
+        "给出恰到好处的提示帮助学生自己想出答案。\n\n"
+        "严格要求：\n"
+        "- 只输出提示内容本身，不要输出任何标题、章节名、分隔线\n"
+        "- 不要输出「题目解读」「解题思路」「答案点评」「关键知识点」等章节\n"
+        "- 不要给出完整可执行的 SQL 答案\n"
+        "- 用中文回答，语气亲切简洁"
+    )
+
     level_prompts = {
-        1: f"针对题目'{current_question.get('question', '')}'，给出思考方向的提示：这道题需要从哪个角度入手？涉及哪些表？需要用到什么类型的操作（如过滤、连接、聚合等）？只给方向，不要给任何 SQL 片段。1~2 句话。",
-        2: f"针对题目'{current_question.get('question', '')}'，给出关键片段的提示：写出解题中最关键的 SQL 片段或条件表达式（如 JOIN 条件、WHERE 子句、GROUP BY 字段等），但不要给出完整的 SQL 语句。2~3 句话。",
-        3: f"针对题目'{current_question.get('question', '')}'，给出整体解题思路：分步骤说明从头到尾应该怎么构造这条 SQL（第一步做什么、第二步做什么...），但不要直接写出完整可执行的 SQL 答案。3~4 句话。",
+        1: (
+            f"数据库 Schema：\n{full_schema_sql}\n\n"
+            f"题目：{question_text}\n\n"
+            f"请给出【思考方向】层级的提示（第 1 层，最粗略）：\n"
+            f"- 这道题需要从哪个角度切入？\n"
+            f"- 涉及哪些表？表之间是什么关系？\n"
+            f"- 大致需要用到什么类型的 SQL 操作（过滤/连接/聚合/排序/子查询等）？\n"
+            f"- 不要给出任何 SQL 代码片段\n"
+            f"- 用 3~4 句话详细说明思考方向"
+        ),
+        2: (
+            f"数据库 Schema：\n{full_schema_sql}\n\n"
+            f"题目：{question_text}\n\n"
+            f"请给出【关键片段】层级的提示（第 2 层，中等详细）：\n"
+            f"- 写出解题中最关键的 SQL 片段（如具体的 JOIN 条件、WHERE 过滤表达式、"
+            f"GROUP BY 的字段名、聚合函数的用法等）\n"
+            f"- 可以给出 1~2 个关键代码片段，但不要组合成完整语句\n"
+            f"- 用 3~5 句话，包含具体的表名和字段名"
+        ),
+        3: (
+            f"数据库 Schema：\n{full_schema_sql}\n\n"
+            f"题目：{question_text}\n\n"
+            f"请给出【整体解题思路】层级的提示（第 3 层，最详细）：\n"
+            f"- 分步骤说明从头到尾应该怎么构造这条 SQL\n"
+            f"- 每一步说清楚做什么、用什么关键字、涉及哪些字段\n"
+            f"- 可以给出每一步的伪代码或片段，但不要把它们拼成一条完整可执行的 SQL\n"
+            f"- 用 4~6 句话，要具体到字段级别"
+        ),
     }
-    prompt = level_prompts.get(hint_level, level_prompts[3])
+
+    prompt = level_prompts[hint_level]
     with st.spinner(f"生成第 {hint_level} 层提示..."):
         try:
-            tutor = Tutor(llm_client)
-            hint = tutor.answer_question(full_schema_sql, prompt)
+            hint = llm_client.chat(
+                system_prompt=hint_system,
+                user_message=prompt,
+                temperature=0.4,
+                max_tokens=512,
+            )
             st.session_state.setdefault("hints", []).append(hint)
         except Exception as e:
             st.session_state.setdefault("hints", []).append(f"（提示生成失败：{e}）")
-    # 关键：生成完后立即刷新，否则当前帧已经渲染过 _display_hints
     st.rerun()
